@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<style>
+    /* --- PROFILE CARD STYLES --- */
+    .profile-card {
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        transition: transform 0.3s ease;
+    }
+
+    /* Ảnh bìa */
+    .profile-cover {
+        height: 150px;
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+        position: relative;
+    }
+
+    .profile-cover::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 50%;
+        background: linear-gradient(to top, rgba(15, 23, 42, 0.6), transparent);
+    }
+
+    /* Avatar - Đã thêm overflow hidden để cắt ảnh tròn */
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        font-weight: 800;
+        color: white;
+        border: 5px solid rgba(15, 23, 42, 0.8);
+        margin-top: -60px;
+        position: relative;
+        z-index: 2;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        overflow: hidden; /* Quan trọng để ảnh không bị tràn khung tròn */
+    }
+
+    /* Badge trạng thái */
+    .status-badge {
+        background: rgba(46, 204, 113, 0.2);
+        color: #2ecc71;
+        border: 1px solid rgba(46, 204, 113, 0.3);
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 10px;
+    }
+
+    /* Stat Box */
+    .stat-box {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .stat-box:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-5px);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+
+    /* Nút bấm */
+    .btn-profile-action {
+        padding: 10px 25px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .btn-logout {
+        background: rgba(231, 76, 60, 0.15);
+        color: #e74c3c;
+        border: 1px solid rgba(231, 76, 60, 0.3);
+    }
+
+    .btn-logout:hover {
+        background: #e74c3c;
+        color: white;
+        box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-8 col-lg-6">
+
+        <div class="profile-card fade-in-up">
+
+            <div class="profile-cover">
+                <div class="position-absolute top-0 end-0 p-3 dropdown">
+                    <button class="btn btn-sm btn-dark bg-black bg-opacity-50 border-0 text-white rounded-circle"
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                        style="width: 35px; height: 35px; transition: all 0.2s;">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2"
+                        style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden;">
+
+                        <li>
+                            <a class="dropdown-item py-2" href="{% url 'edit_profile' %}"> 
+                                <i class="fa-solid fa-user-pen me-2 text-primary"></i>Sửa hồ sơ
+                            </a>
+                        </li>
+
+                        <li>
+                            <a class="dropdown-item py-2" href="{% url 'change_password' %}"> 
+                                <i class="fa-solid fa-key me-2 text-warning"></i>Đổi mật khẩu
+                            </a>
+                        </li>
+
+                        <li><hr class="dropdown-divider"></li>
+
+                        <li>
+                            <a class="dropdown-item py-2 text-danger fw-bold" href="{% url 'logout' %}">
+                                <i class="fa-solid fa-power-off me-2"></i>Đăng xuất
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="px-4 pb-4 text-center">
+
+                <div class="d-flex flex-column align-items-center">
+                    
+                    <div class="profile-avatar">
+                        {% if request.user.userprofile.avatar and "default.jpg" not in request.user.userprofile.avatar.url %}
+                            <img src="{{ request.user.userprofile.avatar.url }}" 
+                                 alt="User Avatar"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        {% else %}
+                            {% if request.user.first_name %}
+                                {{ request.user.first_name|slice:":1"|upper }}
+                            {% else %}
+                                {{ request.user.username|slice:":1"|upper }}
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <h2 class="fw-bold mt-3 text-white mb-0">
+                        {% if request.user.last_name and request.user.first_name %}
+                            {{ request.user.last_name }} {{ request.user.first_name }}
+                        {% else %}
+                            {{ request.user.username }}
+                        {% endif %}
+                    </h2>
+
+                    {% if request.user.last_name and request.user.first_name %}
+                        <small class="text-white-50">@{{ request.user.username }}</small>
+                    {% endif %}
+
+                    <div class="status-badge mt-2">
+                        <i class="fa-solid fa-circle-check me-1"></i> Thành viên chính thức
+                    </div>
+
+                    <p class="text-white-50 mt-2 mb-0">
+                        <i class="fa-regular fa-envelope me-2 text-info"></i>
+                        {% if request.user.email %}
+                            {{ request.user.email }}
+                        {% else %}
+                            Chưa cập nhật email
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="row g-3 mt-4">
+                    <div class="col-6">
+                        <div class="stat-box">
+                            <div class="stat-icon bg-warning bg-opacity-25 text-warning mx-auto">
+                                <i class="fa-solid fa-magnifying-glass-chart"></i>
+                            </div>
+                            <h3 class="fw-bold text-white mb-1">{{ total_searches }}</h3>
+                            <small class="text-white-50 text-uppercase"
+                                style="font-size: 0.75rem; letter-spacing: 1px;">Lượt tra cứu</small>
+                        </div>
+                    </div>
+
+                    <div class="col-6">
+                        <div class="stat-box">
+                            <div class="stat-icon bg-info bg-opacity-25 text-info mx-auto">
+                                <i class="fa-solid fa-location-dot"></i>
+                            </div>
+                            <h4 class="fw-bold text-white mb-1 text-truncate px-2">{{ last_city }}</h4>
+                            <small class="text-white-50 text-uppercase"
+                                style="font-size: 0.75rem; letter-spacing: 1px;">Mới tìm gần đây</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                    <div class="text-start">
+                        <small class="text-white-50 d-block">Ngày tham gia</small>
+
+                        <span class="text-white fw-bold">
+                            <i class="fa-regular fa-calendar me-2"></i>
+                            {{ request.user.date_joined|date:"d/m/Y" }}
+                        </span>
+                    </div>
+
+                    <a href="{% url 'logout' %}" class="btn btn-profile-action btn-logout text-decoration-none">
+                        <i class="fa-solid fa-right-from-bracket me-2"></i>Đăng xuất
+                    </a>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

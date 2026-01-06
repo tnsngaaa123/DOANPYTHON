@@ -1,0 +1,529 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<style>
+    /* =========================================
+       1. CẤU HÌNH NỀN & FONT
+       ========================================= */
+    body {
+        margin: 0;
+        padding: 0;
+        background: #0f172a;
+        overflow: hidden !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* =========================================
+       2. GIAO DIỆN TÌM KIẾM (Search Bar)
+       ========================================= */
+    .floating-search {
+        position: fixed;
+        top: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 550px;
+        z-index: 100;
+    }
+
+    .search-input {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white !important;
+        border-radius: 50px;
+        padding: 15px 50px;
+        font-size: 1rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        text-overflow: ellipsis;
+    }
+
+    .search-input:focus {
+        background: rgba(15, 23, 42, 0.95);
+        box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+        border-color: #00f2fe;
+        outline: none;
+    }
+
+    /* Hộp gợi ý */
+    .suggestions-box {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: rgba(15, 23, 42, 0.98);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        margin-top: 8px;
+        overflow: hidden;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .suggestions-box::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .suggestions-box::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+    }
+
+    .suggestion-item {
+        padding: 12px 20px;
+        color: white;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        text-align: left;
+        display: flex;
+        align-items: center;
+        transition: background 0.2s;
+        line-height: 1.4;
+    }
+
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .suggestion-item:hover {
+        background: rgba(0, 242, 254, 0.15);
+    }
+
+    /* =========================================
+       3. SIDEBAR (Bảng thông tin bên trái)
+       ========================================= */
+    .weather-sidebar {
+        position: fixed;
+        top: 120px;
+        left: 30px;
+        width: 320px;
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 24px;
+        padding: 25px;
+        z-index: 90;
+        color: white;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+        transition: transform 0.3s ease;
+    }
+
+    .weather-sidebar:hover {
+        transform: translateY(-5px);
+        background: rgba(15, 23, 42, 0.85);
+    }
+
+    .anim-icon {
+        width: 65px;
+        height: 65px;
+        filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+    }
+
+    /* Grid thông tin chi tiết */
+    .detail-item {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        transition: 0.2s;
+        height: 100%;
+        min-height: 70px;
+    }
+
+    .detail-item:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .detail-icon {
+        width: 40px;
+        text-align: center;
+        flex-shrink: 0;
+        font-size: 1.2rem;
+    }
+
+    /* =========================================
+       4. NAVIGATION & BUTTONS
+       ========================================= */
+    .top-right-nav {
+        position: fixed;
+        top: 30px;
+        right: 30px;
+        z-index: 101;
+        display: flex;
+        gap: 12px;
+    }
+
+    .nav-btn {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        transition: all 0.2s;
+        font-size: 1.2rem;
+        overflow: hidden;
+        padding: 0;
+    }
+
+    .nav-btn:hover {
+        background: #00f2fe;
+        color: #0f172a;
+        transform: scale(1.1);
+    }
+
+    .btn-gps {
+        position: fixed;
+        bottom: 40px;
+        right: 30px;
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        background: #0f172a;
+        border: 2px solid #00f2fe;
+        color: #00f2fe;
+        font-size: 1.4rem;
+        z-index: 100;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 20px rgba(0, 242, 254, 0.3);
+        transition: all 0.3s;
+    }
+
+    .btn-gps:hover {
+        background: #00f2fe;
+        color: #0f172a;
+        transform: rotate(90deg);
+    }
+
+    /* =========================================
+       5. LOADING & ALERT
+       ========================================= */
+    .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.95);
+        z-index: 9999;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .radar-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #00f2fe;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .error-alert {
+        position: fixed;
+        top: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(220, 38, 38, 0.9);
+        color: white;
+        padding: 10px 25px;
+        border-radius: 50px;
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        transition: opacity 0.5s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 0;">
+    <iframe id="windyFrame"
+        src="https://embed.windy.com/embed2.html?lat={{ map_lat|stringformat:'.4f'|default:'21.0285' }}&lon={{ map_lon|stringformat:'.4f'|default:'105.8542' }}&detailLat={{ map_lat|stringformat:'.4f'|default:'21.0285' }}&detailLon={{ map_lon|stringformat:'.4f'|default:'105.8542' }}&zoom=11&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=true&calendar=&pressure=&type=map&location=coordinates&detail=false&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1"
+        frameborder="0"
+        style="position: absolute; width: 120vw; height: 120vh; top: -10vh; left: -10vw; border: none; filter: brightness(0.9);">
+    </iframe>
+</div>
+
+<button class="btn-gps" onclick="getLocation()" title="Vị trí của tôi">
+    <i class="fa-solid fa-location-crosshairs"></i>
+</button>
+
+<div class="floating-search">
+    <form id="weather-form" action="" method="POST" style="margin: 0; width: 100%;">
+        {% csrf_token %}
+        <input type="hidden" id="lat" name="lat">
+        <input type="hidden" id="lon" name="lon">
+
+        <div class="position-relative">
+            <i class="fa-solid fa-magnifying-glass position-absolute text-white-50"
+                style="left: 20px; top: 50%; transform: translateY(-50%); z-index: 10;"></i>
+
+            <input type="text" id="city-input" name="city" class="search-input w-100"
+                placeholder="Nhập địa điểm (VD: Phường 1, Quận 5...)" autocomplete="off"
+                value="{% if not error %}{{ full_city_name|default:city_name|default:'' }}{% endif %}">
+        </div>
+    </form>
+
+    <div id="suggestions-list" class="suggestions-box"></div>
+</div>
+
+{% if error %}
+<div class="error-alert">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+    <i class="fa-solid fa-xmark ms-2" style="cursor: pointer;" onclick="this.parentElement.style.display='none'"></i>
+</div>
+{% endif %}
+
+<div class="top-right-nav">
+    {% if user.is_authenticated %}
+        
+        <a href="{% url 'prediction' %}" class="nav-btn" title="Dự báo AI">
+            <i class="fa-solid fa-robot"></i>
+        </a>
+        
+        <a href="{% url 'history' %}" class="nav-btn" title="Lịch sử">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+        </a>
+
+        <a href="{% url 'profile' %}" class="nav-btn" title="Tài khoản">
+            {% if request.user.userprofile.avatar and "default.jpg" not in request.user.userprofile.avatar.url %}
+                <img src="{{ request.user.userprofile.avatar.url }}" 
+                     style="width: 100%; height: 100%; object-fit: cover;">
+            {% else %}
+                <div class="w-100 h-100 d-flex align-items-center justify-content-center bg-warning text-dark fw-bold" style="font-size: 1.2rem;">
+                     {% if request.user.first_name %}
+                        {{ request.user.first_name|slice:":1"|upper }}
+                     {% else %}
+                        {{ request.user.username|slice:":1"|upper }}
+                     {% endif %}
+                </div>
+            {% endif %}
+        </a>
+
+        <a href="{% url 'logout' %}" class="nav-btn bg-danger border-danger" title="Đăng xuất">
+            <i class="fa-solid fa-right-from-bracket"></i>
+        </a>
+
+    {% else %}
+        <a href="{% url 'login' %}" class="nav-btn bg-primary border-primary w-auto px-4" style="border-radius: 50px;">
+            <i class="fa-solid fa-right-to-bracket me-2"></i> Đăng nhập
+        </a>
+    {% endif %}
+</div>
+
+{% if current %}
+<div class="weather-sidebar">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <div class="fw-bold text-warning text-uppercase"
+                style="font-size: 1.1rem; line-height: 1.3; letter-spacing: 0.5px;">
+                {{ city_name }}
+            </div>
+            <small class="text-white-50">{{ today|date:"l, d/m/Y" }}</small>
+        </div>
+
+        <div class="ms-1">
+            {% if current.rain > 0.5 %}
+            <img src="https://basmilius.github.io/weather-icons/production/fill/all/rain.svg" class="anim-icon">
+            {% elif current.cloud_cover > 50 %}
+            <img src="https://basmilius.github.io/weather-icons/production/fill/all/cloudy.svg" class="anim-icon">
+            {% else %}
+            <img src="https://basmilius.github.io/weather-icons/production/fill/all/clear-day.svg" class="anim-icon">
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="text-center mb-4">
+        <div class="display-3 fw-bold text-white" style="text-shadow: 0 0 20px rgba(255,255,255,0.2);">
+            {{ current.temp }}°
+        </div>
+        <div class="badge bg-light bg-opacity-10 text-wrap border border-white border-opacity-25 px-3 py-2 mt-2">
+            {{ current.description }}
+        </div>
+    </div>
+
+    <div class="row g-2">
+        <div class="col-6">
+            <div class="detail-item">
+                <div class="detail-icon"><i class="fa-solid fa-droplet text-primary"></i></div>
+                <div>
+                    <div class="text-white-50 small">Độ ẩm</div>
+                    <div class="fw-bold">{{ current.humidity }}%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6">
+            <div class="detail-item">
+                <div class="detail-icon"><i class="fa-solid fa-wind text-light"></i></div>
+                <div>
+                    <div class="text-white-50 small">Gió</div>
+                    <div class="fw-bold">{{ current.wind_speed }} km/h</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6">
+            <div class="detail-item">
+                <div class="detail-icon"><i class="fa-solid fa-temperature-half text-danger"></i></div>
+                <div>
+                    <div class="text-white-50 small">Cảm giác</div>
+                    <div class="fw-bold">{{ current.feels_like }}°</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6">
+            <div class="detail-item">
+                <div class="detail-icon"><i class="fa-solid fa-umbrella text-info"></i></div>
+                <div>
+                    <div class="text-white-50 small">Lượng mưa</div>
+                    <div class="fw-bold">{{ current.rain }} mm</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div id="weather-loading" class="loading-overlay">
+    <div class="radar-spinner"></div>
+    <h3 class="text-white fw-bold">Đang xử lý dữ liệu...</h3>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+        // 1. Dọn dẹp URL
+        if (window.history.replaceState) {
+            var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+        }
+
+        // 2. Ẩn thông báo lỗi
+        const errorBox = document.querySelector('.error-alert');
+        if (errorBox) {
+            setTimeout(() => {
+                errorBox.style.opacity = "0";
+                setTimeout(() => { errorBox.style.display = 'none'; }, 500);
+            }, 3000);
+        }
+
+        // 3. Xử lý Gợi ý tìm kiếm
+        const input = document.getElementById('city-input');
+        const list = document.getElementById('suggestions-list');
+        const latInput = document.getElementById('lat');
+        const lonInput = document.getElementById('lon');
+        const form = document.getElementById('weather-form');
+        const loadingOverlay = document.getElementById('weather-loading');
+        let timeout = null;
+
+        if (input) {
+            input.addEventListener('input', function () {
+                const query = this.value.trim();
+                if (query.length < 2) {
+                    list.style.display = 'none';
+                    return;
+                }
+
+                // Debounce
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    fetch(`/suggest/?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            list.innerHTML = '';
+                            if (data.length > 0) {
+                                list.style.display = 'block';
+                                data.forEach(place => {
+                                    const div = document.createElement('div');
+                                    div.classList.add('suggestion-item');
+
+                                    // Hiển thị tên địa chỉ
+                                    div.innerHTML = `
+                                        <div style="display: flex; align-items: center; width: 100%;">
+                                            <i class="fa-solid fa-location-dot text-info me-3" style="font-size: 1.1rem;"></i>
+                                            <div style="font-size: 0.95rem; color: #fff; line-height: 1.4;">
+                                                ${place.display_name}
+                                            </div>
+                                        </div>
+                                    `;
+
+                                    div.onclick = function () {
+                                        input.value = place.name;
+                                        latInput.value = place.lat;
+                                        lonInput.value = place.lon;
+
+                                        list.style.display = 'none';
+                                        loadingOverlay.style.display = 'flex';
+                                        form.submit();
+                                    };
+                                    list.appendChild(div);
+                                });
+                            } else { list.style.display = 'none'; }
+                        }).catch(err => { list.style.display = 'none'; });
+                }, 300);
+            });
+
+            // Ẩn gợi ý khi click ra ngoài
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest('.floating-search')) { list.style.display = 'none'; }
+            });
+
+            // Hiện loading khi submit form (Enter)
+            form.addEventListener('submit', function () {
+                loadingOverlay.style.display = 'flex';
+            });
+        }
+    });
+
+    // 4. Xử lý nút GPS
+    function getLocation() {
+        if (navigator.geolocation) {
+            document.getElementById('weather-loading').style.display = 'flex';
+            document.querySelector('#weather-loading h3').innerText = "Đang định vị...";
+            navigator.geolocation.getCurrentPosition(showPosition, showError, {
+                enableHighAccuracy: true, timeout: 10000
+            });
+        } else { alert("Trình duyệt không hỗ trợ GPS."); }
+    }
+
+    function showPosition(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        window.location.href = `/?lat=${lat}&lon=${lon}`;
+    }
+
+    function showError(error) {
+        document.getElementById('weather-loading').style.display = 'none';
+        alert("Không thể lấy vị trí của bạn. Vui lòng kiểm tra quyền truy cập vị trí.");
+    }
+</script>
+
+{% endblock %}

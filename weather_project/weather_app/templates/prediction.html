@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<style>
+    /* --- Card Style cho từng ngày dự báo --- */
+    .pred-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .pred-card:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: translateY(-10px);
+        border-color: var(--accent-color);
+        box-shadow: 0 10px 30px rgba(0, 242, 254, 0.2);
+    }
+
+    /* Nhiệt độ chính to đẹp */
+    .main-pred-temp {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(to bottom, #fff, #a5f3fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 10px 0;
+    }
+
+    /* Badge hiển thị khoảng nhiệt độ */
+    .range-badge {
+        font-size: 0.9rem;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 8px 15px;
+        border-radius: 50px;
+        color: #e2e8f0;
+        display: inline-block;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Box hiển thị độ chính xác */
+    .accuracy-box {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 15px;
+        padding: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-11 col-lg-10">
+
+        <div class="glass-card mb-4 p-4"
+            style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));">
+            <form method="POST">
+                {% csrf_token %}
+                <label class="fw-bold mb-3 text-info" style="font-size: 1.2rem;">
+                    <i class="fa-solid fa-brain me-2"></i>AI Prophet
+                </label>
+                <div class="input-group shadow-lg">
+                    <input type="text" name="city" class="form-control search-input border-0"
+                        placeholder="Nhập tên thành phố (VD: Hanoi, Ho Chi Minh)..."
+                        style="background: rgba(255,255,255,0.1); color: white;" required>
+                    <button class="btn btn-info fw-bold text-dark" style="z-index: 10;">
+                        <i class="fa-solid fa-magnifying-glass me-2"></i>PHÂN TÍCH
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger glass-card text-center border-danger">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ error }}
+        </div>
+        {% endif %}
+
+        {% if predictions %}
+        <div class="glass-card p-4 fade-in-up">
+
+            <div class="text-center mb-4">
+                <h2 class="fw-bold text-white mb-2 display-6">{{ city_name }}</h2>
+                <p class="text-white-50">
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i>Dữ liệu được huấn luyện trên
+                    <span class="text-info fw-bold">3 năm</span> lịch sử (Nhiệt độ, Mưa, Gió, Bức xạ)
+                </p>
+            </div>
+
+            {% if accuracy %}
+            <div class="row justify-content-center mb-5">
+                <div class="col-md-8">
+                    <div class="accuracy-box d-flex justify-content-around align-items-center">
+                        <div class="text-center">
+                            <small class="text-white-50 d-block text-uppercase" style="font-size: 0.7rem;">Độ tin
+                                cậy</small>
+                            {% if accuracy >= 85 %}
+                            <span class="fw-bold fs-4 text-success">{{ accuracy }}%</span>
+                            {% else %}
+                            <span class="fw-bold fs-4 text-warning">{{ accuracy }}%</span>
+                            {% endif %}
+                        </div>
+                        <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.2);"></div>
+                        <div class="text-center">
+                            <small class="text-white-50 d-block text-uppercase" style="font-size: 0.7rem;">Sai số
+                                (MAE)</small>
+                            <span class="fw-bold fs-4 text-white">±{{ mae }}°C</span>
+                        </div>
+                        <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.2);"></div>
+                        <div class="text-center">
+                            <small class="text-white-50 d-block text-uppercase" style="font-size: 0.7rem;">Mô
+                                hình</small>
+                            <span class="fw-bold fs-5 text-primary">Prophet V2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="mb-5 position-relative" style="height: 350px;">
+                <canvas id="weatherChart"></canvas>
+            </div>
+
+            <hr class="border-secondary my-5 opacity-25">
+
+            <h5 class="fw-bold mb-4 ps-2 text-white">
+                <i class="fa-solid fa-calendar-week me-2 text-warning"></i>Dự báo chi tiết 7 ngày tới
+            </h5>
+
+            <div class="row g-3">
+                {% for p in predictions %}
+                <div class="col-6 col-md-4 col-lg-3">
+                    <div class="pred-card">
+                        <h6 class="text-info fw-bold mb-1">{{ p.date }}</h6>
+
+                        <div class="main-pred-temp">{{ p.temp }}°</div>
+
+                        <div class="mt-2">
+                            <span class="range-badge" title="Khoảng nhiệt độ dự kiến">
+                                <i class="fa-solid fa-temperature-half me-1 text-white-50"></i>{{ p.range_msg }}
+                            </span>
+                        </div>
+
+                        <div class="mt-3 text-white-50 small">
+                            {% if p.temp > 30 %}
+                            <i class="fa-solid fa-sun text-warning"></i> Nắng nóng
+                            {% elif p.temp < 18 %} <i class="fa-solid fa-snowflake text-info"></i> Se lạnh
+                                {% else %}
+                                <i class="fa-solid fa-cloud-sun text-success"></i> Dễ chịu
+                                {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-5 text-center text-white-50 fst-italic small">
+                * Dự báo dựa trên phân tích đa biến (Nhiệt độ + Mưa + Gió + Nắng) từ Open-Meteo.
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const ctx = document.getElementById('weatherChart').getContext('2d');
+
+                // Lấy dữ liệu từ Backend (Json được render từ views.py)
+                const rawData = JSON.parse('{{ chart_data|escapejs }}');
+
+                // Tạo màu Gradient cho đường trung bình
+                let gradientAvg = ctx.createLinearGradient(0, 0, 0, 400);
+                gradientAvg.addColorStop(0, 'rgba(0, 97, 242, 0.5)'); // Xanh Royal đậm
+                gradientAvg.addColorStop(1, 'rgba(0, 97, 242, 0.0)');
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: rawData.labels,
+                        datasets: [
+                            // 1. Đường trung bình (Quan trọng nhất)
+                            {
+                                label: 'Nhiệt độ dự báo',
+                                data: rawData.avg,
+                                borderColor: '#0061f2',
+                                backgroundColor: gradientAvg,
+                                borderWidth: 4,
+                                pointBackgroundColor: '#fff',
+                                pointBorderColor: '#0061f2',
+                                pointRadius: 5,
+                                pointHoverRadius: 7,
+                                fill: true,
+                                tension: 0.4,
+                                order: 1
+                            },
+                            // 2. Đường Max (Cận trên)
+                            {
+                                label: 'Khả năng cao nhất',
+                                data: rawData.max,
+                                borderColor: '#e74c3c', // Đỏ
+                                borderWidth: 2,
+                                borderDash: [5, 5], // Nét đứt
+                                pointRadius: 0,
+                                fill: false,
+                                tension: 0.4,
+                                order: 2
+                            },
+                            // 3. Đường Min (Cận dưới)
+                            {
+                                label: 'Khả năng thấp nhất',
+                                data: rawData.min,
+                                borderColor: '#2ecc71', // Xanh lá
+                                borderWidth: 2,
+                                borderDash: [5, 5], // Nét đứt
+                                pointRadius: 0,
+                                fill: false,
+                                tension: 0.4,
+                                order: 3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: { color: '#fff', font: { size: 12 } }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(0,0,0,0.9)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                borderColor: 'rgba(255,255,255,0.2)',
+                                borderWidth: 1
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: 'rgba(255,255,255,0.7)' }
+                            },
+                            y: {
+                                grid: { color: 'rgba(255,255,255,0.1)' },
+                                ticks: { color: 'rgba(255,255,255,0.7)' },
+                                title: { display: true, text: 'Độ C', color: '#fff' }
+                            }
+                        }
+                    }
+                });
+            });
+        </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

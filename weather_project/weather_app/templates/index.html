@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLU Weather Dashboard</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.15);
+            --accent-color: #ffd700;
+            /* Màu vàng điểm nhấn */
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            /* Ảnh nền đẹp chất lượng cao */
+            background: url('https://images.unsplash.com/photo-1470770848216-c8d487cf329c?q=80&w=2070&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+            color: white;
+        }
+
+        /* Lớp phủ mờ để làm nổi bật nội dung */
+        .body-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: -1;
+        }
+
+        /* --- GLASS CARD STYLE --- */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: var(--glass-border);
+            border-radius: 24px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            height: 100%;
+        }
+
+        /* --- SEARCH BAR --- */
+        .search-input {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: none;
+            border-radius: 50px 0 0 50px;
+            color: white !important;
+            padding: 15px 25px;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .search-btn {
+            border-radius: 0 50px 50px 0;
+            background: var(--accent-color);
+            border: none;
+            color: black;
+            padding: 0 25px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .search-btn:hover {
+            background: #e6c200;
+        }
+
+        /* --- HISTORY LIST --- */
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            transition: 0.3s;
+        }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+
+        .history-temp {
+            font-weight: 700;
+            color: var(--accent-color);
+        }
+
+        /* --- WEATHER DETAILS --- */
+        .hero-temp {
+            font-size: 5.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .weather-icon-large {
+            width: 120px;
+            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
+        }
+
+        .detail-box {
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 18px;
+            padding: 20px 15px;
+            text-align: center;
+            transition: 0.3s;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .detail-box:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-5px);
+        }
+
+        .detail-icon {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .detail-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .detail-label {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- AI SECTION --- */
+        .ai-card {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.2), rgba(0, 0, 0, 0));
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .ai-prediction {
+            font-size: 4rem;
+            font-weight: 700;
+            color: #2ecc71;
+            text-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
+        }
+
+        /* Responsive fix cho Grid 5 cột */
+        @media (min-width: 992px) {
+            .col-lg-2dot4 {
+                flex: 0 0 auto;
+                width: 20%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="body-overlay"></div>
+
+    <nav class="navbar navbar-dark py-3">
+        <div class="container-fluid px-4">
+            <a href="{% url 'index' %}" class="navbar-brand fw-bold fs-3 text-decoration-none">
+                <i class="fa-solid fa-bolt-lightning text-warning me-2"></i>PRO WEATHER AI
+            </a>
+
+            <div class="d-flex align-items-center gap-3">
+
+                <div
+                    class="d-none d-md-flex align-items-center text-white bg-white bg-opacity-10 px-3 py-2 rounded-pill border border-white border-opacity-25">
+                    <i class="fa-solid fa-user-astronaut me-2 text-warning"></i>
+                    <span class="fw-bold">{{ request.user.username }}</span>
+                </div>
+
+                <a href="{% url 'logout' %}" class="btn btn-danger rounded-pill px-3 d-none d-md-block"
+                    title="Đăng xuất">
+                    <i class="fa-solid fa-power-off"></i>
+                </a>
+
+                <button class="btn btn-outline-light rounded-circle p-2 border-2" type="button"
+                    data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
+                    <i class="fa-solid fa-bars fs-4"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="offcanvas offcanvas-end glass-card border-0 text-white" tabindex="-1" id="offcanvasMenu"
+        style="background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(20px); width: 320px;">
+        <div class="offcanvas-header border-bottom border-secondary">
+            <h5 class="offcanvas-title fw-bold"><i class="fa-solid fa-compass me-2 text-warning"></i>MENU CHÍNH</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <div class="p-4 text-center border-bottom border-secondary bg-white bg-opacity-10">
+                <div class="avatar-circle mb-3 mx-auto d-flex align-items-center justify-content-center bg-warning text-dark fw-bold fs-2"
+                    style="width: 70px; height: 70px; border-radius: 50%;">
+                    {{ request.user.username|slice:":1"|upper }}
+                </div>
+                <h5 class="mb-1 fw-bold">{{ request.user.username }}</h5>
+                <small class="text-white-50">Thành viên Pro Weather</small>
+            </div>
+
+            <div class="list-group list-group-flush bg-transparent mt-3">
+                <a href="{% url 'index' %}"
+                    class="list-group-item list-group-item-action bg-transparent text-white border-0 py-3 px-4">
+                    <i class="fa-solid fa-house me-3 text-info" style="width: 25px;"></i>Trang chủ
+                </a>
+                <a href="#history-section"
+                    class="list-group-item list-group-item-action bg-transparent text-white border-0 py-3 px-4"
+                    data-bs-dismiss="offcanvas">
+                    <i class="fa-solid fa-clock-rotate-left me-3 text-success" style="width: 25px;"></i>Lịch sử tìm kiếm
+                </a>
+                <a href="#prediction-section"
+                    class="list-group-item list-group-item-action bg-transparent text-white border-0 py-3 px-4"
+                    data-bs-dismiss="offcanvas">
+                    <i class="fa-solid fa-robot me-3 text-primary" style="width: 25px;"></i>Dự đoán nhiệt độ
+                </a>
+                <a href="#" class="list-group-item list-group-item-action bg-transparent text-white border-0 py-3 px-4">
+                    <i class="fa-solid fa-user-gear me-3 text-warning" style="width: 25px;"></i>Tài khoản của bạn
+                </a>
+                <div class="border-top border-secondary my-3"></div>
+                <a href="{% url 'logout' %}"
+                    class="list-group-item list-group-item-action bg-transparent text-danger border-0 py-3 px-4 fw-bold">
+                    <i class="fa-solid fa-right-from-bracket me-3" style="width: 25px;"></i>Đăng xuất
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4">
+        <div class="row g-4">
+
+            <div class="col-lg-4">
+                <div class="glass-card h-100 d-flex flex-column">
+                    <form method="POST" class="mb-5">
+                        {% csrf_token %}
+                        <label class="fw-bold mb-3 ps-2"><i class="fa-solid fa-magnifying-glass-location me-2"></i>Tìm
+                            kiếm thành phố</label>
+                        <div class="input-group shadow-sm">
+                            <input type="text" name="city" class="form-control search-input"
+                                placeholder="VD: Hanoi, Tokyo..." required autofocus>
+                            <button class="btn search-btn">TÌM</button>
+                        </div>
+                    </form>
+
+                    <div class="flex-grow-1 d-flex flex-column overflow-hidden" id="history-section">
+                        <h6 class="fw-bold ps-2 mb-3 border-bottom pb-2"><i
+                                class="fa-solid fa-clock-rotate-left me-2"></i>Lịch sử gần đây</h6>
+                        <div
+                            style="overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent;">
+
+                            {% for h in history %}
+                            <div class="history-item">
+                                <div>
+                                    <div class="fw-bold text-truncate" style="max-width: 180px;">{{ h.city }}</div>
+                                    <small class="opacity-50">
+                                        <i class="fa-regular fa-clock me-1"></i>
+                                        {% if h.search_time %}
+                                        {{ h.search_time|date:"H:i d/m" }}
+                                        {% else %}
+                                        --:--
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="history-temp">{{ h.temp }}°C</div>
+                                    <small class="opacity-75" style="font-size: 0.7rem">{{ h.description }}</small>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <p class="text-center opacity-50 mt-4">Chưa có lịch sử tìm kiếm.</p>
+                            {% endfor %}
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                {% if error %}
+                <div class="alert alert-danger glass-card border-danger mb-4 text-center">{{ error }}</div>
+                {% endif %}
+
+                {% if current %}
+                <div
+                    class="glass-card mb-4 text-center text-md-start d-flex flex-column flex-md-row align-items-center justify-content-around p-5">
+                    <div>
+                        <h1 class="fw-bold mb-0 display-4">{{ current.city }}</h1>
+                        <p class="fs-5 opacity-75 mb-3"><i class="fa-solid fa-location-dot me-2"></i>{{ current.country
+                            }}</p>
+                        <div class="badge bg-light text-dark px-3 py-2 rounded-pill">
+                            <i class="fa-regular fa-calendar-days me-2"></i>{{ current.date }}
+                        </div>
+                    </div>
+                    <div class="text-center my-4 my-md-0">
+                        <img src="{{ current.icon }}" class="weather-icon-large mb-2">
+                        <p class="fs-4 fw-bold text-capitalize mb-0">{{ current.condition }}</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="hero-temp">{{ current.temp }}°</div>
+                        <p class="opacity-75 mb-0">Cảm giác như: <b>{{ current.feels_like }}°C</b></p>
+                    </div>
+                </div>
+
+                <div class="glass-card mb-4">
+                    <h5 class="fw-bold mb-4 ps-2"><i class="fa-solid fa-sliders me-2"></i>Chỉ số chi tiết</h5>
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-droplet detail-icon text-info"></i>
+                                <div class="detail-value">{{ current.humidity }}%</div>
+                                <div class="detail-label">Độ ẩm</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-wind detail-icon text-white-50"></i>
+                                <div class="detail-value">{{ current.wind_speed }} km/h</div>
+                                <div class="detail-label">Gió</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-regular fa-compass detail-icon text-white-50"></i>
+                                <div class="detail-value">{{ current.wind_dir }}°</div>
+                                <div class="detail-label">Hướng gió</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-sun detail-icon text-warning"></i>
+                                <div class="detail-value">{{ current.uv }}</div>
+                                <div class="detail-label">UV Index</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-eye detail-icon text-primary"></i>
+                                <div class="detail-value">{{ current.visibility }} km</div>
+                                <div class="detail-label">Tầm nhìn</div>
+                            </div>
+                        </div>
+
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-gauge-high detail-icon text-danger"></i>
+                                <div class="stat-val">{{ current.pressure }} mb</div>
+                                <div class="stat-label">Áp suất</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-cloud detail-icon text-secondary"></i>
+                                <div class="detail-value">{{ current.cloud_cover }}%</div>
+                                <div class="detail-label">Mây phủ</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-cloud-rain detail-icon text-info"></i>
+                                <div class="detail-value">{{ current.rain }} mm</div>
+                                <div class="detail-label">Lượng mưa</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i
+                                    class="fa-solid fa-temperature-high detail-icon text-danger"></i>
+                                <div class="detail-value">{{ current.temp }}°C</div>
+                                <div class="detail-label">Nhiệt độ</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2dot4">
+                            <div class="detail-box"> <i class="fa-solid fa-person-rays detail-icon text-success"></i>
+                                <div class="detail-value">{{ current.feels_like }}°C</div>
+                                <div class="detail-label">Cảm giác</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card ai-card" id="prediction-section">
+                    <div class="row align-items-center">
+                        <div class="col-md-5 text-center text-md-start mb-4 mb-md-0">
+                            <h5 class="fw-bold text-success"><i class="fa-solid fa-robot me-2"></i>AI Prophet Dự Báo
+                            </h5>
+                            <p class="opacity-75 mb-2">Nhiệt độ dự kiến ngày mai:</p>
+                            <div class="ai-prediction">{{ prediction }}°C</div>
+                            <span
+                                class="badge bg-success bg-opacity-25 text-success border border-success rounded-pill px-3 mt-2">
+                                <i class="fa-solid fa-chart-line me-1"></i>Độ tin cậy cao
+                            </span>
+                        </div>
+                        <div class="col-md-7">
+                            <div style="height: 220px;">
+                                <canvas id="weatherChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="glass-card text-center p-5 d-flex flex-column justify-content-center align-items-center"
+                    style="min-height: 400px;">
+                    <i class="fa-solid fa-cloud-bolt display-1 mb-4 text-warning opacity-50"></i>
+                    <h2 class="fw-bold">Chào mừng đến với Pro Weather AI</h2>
+                    <p class="fs-5 opacity-75">Hãy nhập tên thành phố bên cột trái để bắt đầu phân tích thời tiết.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if chart_data %}
+    <script>
+        const ctx = document.getElementById('weatherChart').getContext('2d');
+        const rawData = JSON.parse('{{ chart_data|safe }}');
+
+        let gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(46, 204, 113, 0.4)');
+        gradient.addColorStop(1, 'rgba(46, 204, 113, 0.0)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: rawData.labels,
+                datasets: [{
+                    label: 'Nhiệt độ (°C)',
+                    data: rawData.data,
+                    borderColor: '#2ecc71',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#2ecc71',
+                    pointRadius: 5,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: 'rgba(255,255,255,0.7)' }
+                    }
+                }
+            }
+        });
+    </script>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

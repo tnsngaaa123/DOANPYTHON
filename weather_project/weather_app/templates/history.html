@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+    /* --- MÀU SẮC & CẤU HÌNH --- */
+    :root {
+        --primary-neon: #4facfe;
+        --secondary-neon: #00f2fe;
+        --glass-dark: rgba(15, 23, 42, 0.7);
+        --border-light: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Container chính */
+    .history-card {
+        background: var(--glass-dark);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border-light);
+        border-radius: 20px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+    }
+
+    /* Input & Select Style - Cyberpunk */
+    .cyber-input {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        padding: 8px 15px;
+        border-radius: 50px;
+        outline: none;
+        transition: 0.3s;
+        font-size: 0.9rem;
+        cursor: pointer;
+        color-scheme: dark;
+        /* Icon lịch màu trắng */
+    }
+
+    .cyber-input:focus,
+    .cyber-input:hover {
+        border-color: var(--secondary-neon);
+        box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+    }
+
+    /* Select box riêng biệt */
+    select.cyber-input {
+        appearance: none;
+        /* Xóa mũi tên mặc định xấu xí */
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 15px;
+        padding-right: 35px;
+    }
+
+    /* Nút Reset */
+    .btn-reset {
+        border: 1px solid var(--primary-neon);
+        color: var(--primary-neon);
+        background: transparent;
+        border-radius: 50px;
+        padding: 8px 20px;
+        transition: 0.3s;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .btn-reset:hover {
+        background: linear-gradient(135deg, var(--primary-neon), var(--secondary-neon));
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 0 15px rgba(0, 242, 254, 0.5);
+    }
+
+    /* Item danh sách */
+    .history-item {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        transition: 0.3s;
+        margin-bottom: 12px;
+    }
+
+    .history-item:hover {
+        background: rgba(79, 172, 254, 0.15);
+        border-color: var(--primary-neon);
+        transform: translateY(-2px);
+    }
+
+    /* Icon box số thứ tự */
+    .icon-box {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--secondary-neon);
+        font-size: 1.2rem;
+    }
+
+    /* Nhiệt độ */
+    .temp-neon {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--secondary-neon);
+        text-shadow: 0 0 10px rgba(0, 242, 254, 0.6);
+    }
+
+    /* Ẩn hiện input */
+    .d-none-custom {
+        display: none !important;
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-lg-9 col-md-11">
+        <div class="history-card">
+
+            <div class="p-4 border-bottom border-white border-opacity-10">
+                <div class="row align-items-center gy-3">
+                    <div class="col-md-4">
+                        <h4 class="fw-bold text-white mb-0">
+                            <i class="fa-solid fa-clock-rotate-left me-2" style="color: #00f2fe;"></i>Lịch Sử
+                            <span
+                                class="badge bg-white bg-opacity-10 text-white fw-normal ms-2 rounded-pill border border-white border-opacity-25"
+                                id="count-badge">
+                                {{ history|length }}
+                            </span>
+                        </h4>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div
+                            class="d-flex justify-content-md-end justify-content-start align-items-center gap-2 flex-wrap">
+
+                            <select id="filterMode" class="cyber-input" onchange="switchMode()">
+                                <option value="date">Theo Ngày</option>
+                                <option value="month">Theo Tháng</option>
+                                <option value="year">Theo Năm</option>
+                            </select>
+
+                            <input type="date" id="inputDate" class="cyber-input filter-input">
+
+                            <input type="month" id="inputMonth" class="cyber-input filter-input d-none-custom">
+
+                            <select id="inputYear" class="cyber-input filter-input d-none-custom">
+                                <option value="">Chọn năm</option>
+                            </select>
+
+                            <button class="btn-reset" onclick="resetAll()">
+                                <i class="fa-solid fa-arrows-rotate me-1"></i>Tất cả
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 overflow-auto custom-scroll" style="max-height: 600px;">
+
+                <div id="history-list">
+                    {% for h in history %}
+                    <div class="d-flex justify-content-between align-items-center p-3 history-item"
+                        data-date="{{ h.search_time|date:'Y-m-d' }}">
+
+                        <div class="d-flex align-items-center">
+                            <div class="icon-box me-3">
+                                <i class="fa-solid fa-location-dot"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1 fw-bold text-white">{{ h.city }}</h5>
+                                <div class="small text-white-50">
+                                    <i class="fa-regular fa-clock me-1 text-info"></i>
+                                    {{ h.search_time|date:"H:i" }}
+                                    <span class="mx-2 opacity-25">|</span>
+                                    {{ h.search_time|date:"d/m/Y" }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-end" style="min-width: 90px;">
+                            <div class="temp-neon">{{ h.temp }}°</div>
+                            <span class="badge bg-white bg-opacity-10 fw-normal rounded-pill text-white-50">
+                                {{ h.description }}
+                            </span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-5">
+                        <i class="fa-solid fa-box-open display-1 text-white opacity-25 mb-3"></i>
+                        <h5 class="text-white-50">Chưa có dữ liệu</h5>
+                        <a href="{% url 'home' %}" class="btn-reset text-decoration-none mt-2 d-inline-block">Tìm kiếm
+                            ngay</a>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div id="no-result" class="text-center py-5 d-none-custom">
+                    <i class="fa-solid fa-filter-circle-xmark display-1 text-white opacity-25 mb-3"></i>
+                    <h5 class="text-white-50">Không tìm thấy kết quả nào</h5>
+                    <button onclick="resetAll()" class="btn btn-sm btn-outline-info rounded-pill mt-2">Xem lại tất
+                        cả</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- KHỞI TẠO ---
+    const listItems = document.querySelectorAll('.history-item');
+    const noResult = document.getElementById('no-result');
+    const badge = document.getElementById('count-badge');
+
+    // Tạo danh sách năm động (Từ năm nay lùi về 5 năm trước)
+    const currentYear = new Date().getFullYear();
+    const yearSelect = document.getElementById('inputYear');
+    for (let i = 0; i < 5; i++) {
+        let y = currentYear - i;
+        let opt = document.createElement('option');
+        opt.value = y;
+        opt.innerHTML = "Năm " + y;
+        yearSelect.appendChild(opt);
+    }
+
+    // --- HÀM CHUYỂN ĐỔI CHẾ ĐỘ (NGÀY/THÁNG/NĂM) ---
+    function switchMode() {
+        const mode = document.getElementById('filterMode').value;
+
+        // 1. Ẩn tất cả input
+        document.querySelectorAll('.filter-input').forEach(el => el.classList.add('d-none-custom'));
+
+        // 2. Hiện input tương ứng và reset giá trị cũ
+        if (mode === 'date') {
+            const el = document.getElementById('inputDate');
+            el.classList.remove('d-none-custom');
+            el.value = '';
+        } else if (mode === 'month') {
+            const el = document.getElementById('inputMonth');
+            el.classList.remove('d-none-custom');
+            el.value = '';
+        } else if (mode === 'year') {
+            const el = document.getElementById('inputYear');
+            el.classList.remove('d-none-custom');
+            el.value = ''; // Reset về default
+        }
+
+        // 3. Reset danh sách về hiển thị tất cả
+        resetListOnly();
+    }
+
+    // --- HÀM LỌC CHÍNH (GẮN VÀO SỰ KIỆN CHANGE CỦA INPUT) ---
+    document.querySelectorAll('.filter-input').forEach(input => {
+        input.addEventListener('change', function () {
+            const val = this.value; // Giá trị user chọn
+            if (!val) return;       // Nếu chưa chọn gì thì thôi
+
+            const mode = document.getElementById('filterMode').value;
+            let visibleCount = 0;
+
+            listItems.forEach(item => {
+                // data-date format: YYYY-MM-DD
+                const itemDate = item.getAttribute('data-date');
+                let isMatch = false;
+
+                if (mode === 'date') {
+                    // So khớp chính xác cả chuỗi YYYY-MM-DD
+                    isMatch = (itemDate === val);
+                }
+                else if (mode === 'month') {
+                    // Input month trả về YYYY-MM -> Kiểm tra startsWith
+                    isMatch = itemDate.startsWith(val);
+                }
+                else if (mode === 'year') {
+                    // Input year trả về YYYY -> Kiểm tra startsWith
+                    isMatch = itemDate.startsWith(val);
+                }
+
+                // Ẩn/Hiện item
+                if (isMatch) {
+                    item.classList.remove('d-none-custom');
+                    item.classList.add('d-flex');
+                    visibleCount++;
+                } else {
+                    item.classList.add('d-none-custom');
+                    item.classList.remove('d-flex');
+                }
+            });
+
+            // Cập nhật UI
+            updateUI(visibleCount);
+        });
+    });
+
+    // --- CÁC HÀM TIỆN ÍCH ---
+    function resetAll() {
+        document.getElementById('inputDate').value = '';
+        document.getElementById('inputMonth').value = '';
+        document.getElementById('inputYear').value = '';
+        resetListOnly();
+    }
+
+    function resetListOnly() {
+        listItems.forEach(item => {
+            item.classList.remove('d-none-custom');
+            item.classList.add('d-flex');
+        });
+        updateUI(listItems.length);
+    }
+
+    function updateUI(count) {
+        badge.innerText = count;
+        // Kiểm tra xem danh sách gốc có trống không
+        const isListEmpty = document.querySelector('#history-list .text-center.py-5');
+
+        if (!isListEmpty) {
+            if (count === 0) noResult.classList.remove('d-none-custom');
+            else noResult.classList.add('d-none-custom');
+        }
+    }
+</script>
+{% endblock %}
