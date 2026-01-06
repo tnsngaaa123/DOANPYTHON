@@ -131,7 +131,7 @@
        ========================================= */
     .weather-sidebar {
         position: fixed;
-        top: 120px;
+        top: 55px;
         left: 30px;
         width: 320px;
         background: rgba(15, 23, 42, 0.75);
@@ -151,10 +151,19 @@
         background: rgba(15, 23, 42, 0.85);
     }
 
+    /* Icon chính (lớn) */
     .anim-icon {
         width: 65px;
         height: 65px;
         filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+    }
+
+    /* --- [ĐÃ SỬA]: Tăng kích thước icon chi tiết --- */
+    .detail-anim-icon {
+        width: 55px;  /* Tăng từ 42px lên 55px */
+        height: 55px;
+        filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.25));
+        margin-bottom: 0;
     }
 
     /* Grid thông tin chi tiết */
@@ -166,7 +175,7 @@
         align-items: center;
         transition: 0.2s;
         height: 100%;
-        min-height: 70px;
+        min-height: 80px; /* Tăng chiều cao min để chứa icon lớn */
     }
 
     .detail-item:hover {
@@ -174,11 +183,15 @@
         transform: translateY(-2px);
     }
 
+    /* --- [ĐÃ SỬA]: Tăng chiều rộng cột chứa icon --- */
     .detail-icon {
-        width: 40px;
+        width: 65px; /* Tăng từ 45px lên 65px */
         text-align: center;
         flex-shrink: 0;
-        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 5px;
     }
 
     /* =========================================
@@ -386,12 +399,12 @@
         </div>
 
         <div class="ms-1">
-            {% if current.rain > 0.5 %}
-            <img src="https://basmilius.github.io/weather-icons/production/fill/all/rain.svg" class="anim-icon">
+            {% if current.rain_display > 0.1 %}
+                <img src="https://basmilius.github.io/weather-icons/production/fill/all/rain.svg" class="anim-icon">
             {% elif current.cloud_cover > 50 %}
-            <img src="https://basmilius.github.io/weather-icons/production/fill/all/cloudy.svg" class="anim-icon">
+                <img src="https://basmilius.github.io/weather-icons/production/fill/all/cloudy.svg" class="anim-icon">
             {% else %}
-            <img src="https://basmilius.github.io/weather-icons/production/fill/all/clear-day.svg" class="anim-icon">
+                <img src="https://basmilius.github.io/weather-icons/production/fill/all/clear-day.svg" class="anim-icon">
             {% endif %}
         </div>
     </div>
@@ -418,9 +431,12 @@
     </div>
 
     <div class="row g-2">
+        
         <div class="col-6">
             <div class="detail-item">
-                <div class="detail-icon"><i class="fa-solid fa-droplet text-primary"></i></div>
+                <div class="detail-icon">
+                    <img src="https://basmilius.github.io/weather-icons/production/fill/all/humidity.svg" class="detail-anim-icon">
+                </div>
                 <div>
                     <div class="text-white-50 small">Độ ẩm</div>
                     <div class="fw-bold">{{ current.humidity }}%</div>
@@ -430,7 +446,9 @@
 
         <div class="col-6">
             <div class="detail-item">
-                <div class="detail-icon"><i class="fa-solid fa-wind text-light"></i></div>
+                <div class="detail-icon">
+                    <img src="https://basmilius.github.io/weather-icons/production/fill/all/wind.svg" class="detail-anim-icon">
+                </div>
                 <div>
                     <div class="text-white-50 small">Gió</div>
                     <div class="fw-bold">{{ current.wind_speed }} km/h</div>
@@ -440,7 +458,9 @@
 
         <div class="col-6">
             <div class="detail-item">
-                <div class="detail-icon"><i class="fa-solid fa-temperature-half text-danger"></i></div>
+                <div class="detail-icon">
+                    <img src="https://basmilius.github.io/weather-icons/production/fill/all/thermometer.svg" class="detail-anim-icon">
+                </div>
                 <div>
                     <div class="text-white-50 small">Cảm giác</div>
                     <div class="fw-bold">{{ current.feels_like }}°</div>
@@ -450,10 +470,16 @@
 
         <div class="col-6">
             <div class="detail-item">
-                <div class="detail-icon"><i class="fa-solid fa-umbrella text-info"></i></div>
+                <div class="detail-icon">
+                    <img src="https://basmilius.github.io/weather-icons/production/fill/all/rain.svg" class="detail-anim-icon">
+                </div>
                 <div>
                     <div class="text-white-50 small">Lượng mưa</div>
-                    <div class="fw-bold">{{ current.rain }} mm</div>
+                    {% if current.rain_display > 0 %}
+                        <div class="fw-bold text-info">{{ current.rain_display }} mm</div>
+                    {% else %}
+                        <div class="fw-bold text-white-50">0 mm</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -567,8 +593,6 @@
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
-            
-            // Định dạng YYYY-MM-DD
             const maxDate = `${yyyy}-${mm}-${dd}`;
             
             // Set ngày tối đa là hôm nay
@@ -612,5 +636,4 @@
         alert(msg);
     }
 </script>
-
 {% endblock %}

@@ -26,7 +26,7 @@ from sklearn.linear_model import LinearRegression
 import requests
 import pandas as pd
 import numpy as np
-from datetime import datetime, date
+from datetime import datetime, date, timedelta # Đã thêm timedelta
 import json
 import urllib3
 
@@ -39,13 +39,55 @@ HEADERS = {
     'Referer': 'https://www.google.com/'
 }
 
+# --- HÀM TRỢ GIÚP: CHỌN ICON ĐỘNG (Cho Detail View) ---
+def get_icon_name(code, is_day):
+    """
+    Trả về tên icon dựa trên mã thời tiết và trạng thái ngày/đêm.
+    is_day: 1 (Ngày), 0 (Đêm)
+    """
+    suffix = "-day" if is_day == 1 else "-night"
+    
+    # 0: Clear (Quang đãng)
+    if code == 0: return f"clear{suffix}"
+    
+    # 1: Partly Cloud (Ít mây)
+    if code == 1: return f"partly-cloudy{suffix}"
+    
+    # 2: Cloudy (Có mây) -> Basmilius thường dùng chung icon cloudy, hoặc cloudy-day/night
+    if code == 2: return f"partly-cloudy{suffix}" # Hoặc "cloudy" nếu muốn icon mây to hơn
+    
+    # 3: Overcast (U ám)
+    if code == 3: return "overcast" # U ám thì ngày đêm giống nhau (mây đen)
+    
+    # Sương mù
+    if code in [45, 48]: return f"fog{suffix}"
+    
+    # Mưa phùn
+    if code in [51, 53, 55, 56, 57]: return f"drizzle"
+    
+    # Mưa
+    if code in [61, 63, 65, 80, 81, 82]: return f"rain"
+    
+    # Tuyết
+    if code in [71, 73, 75, 77, 85, 86]: return f"snow"
+    
+    # Dông
+    if code in [95, 96, 99]: return f"thunderstorms{suffix}"
+    
+    return f"partly-cloudy{suffix}"
+
 # Bảng mã thời tiết chuẩn Quốc tế (WMO) dịch sang Tiếng Việt
 WMO_CODES = {
     0: "Trời quang đãng", 1: "Chủ yếu là nắng", 2: "Có mây", 3: "U ám (Nhiều mây)",
     45: "Sương mù", 48: "Sương muối",
     51: "Mưa phùn nhẹ", 53: "Mưa phùn", 55: "Mưa phùn dày",
+    56: "Mưa phùn lạnh", 57: "Mưa phùn đông kết",
     61: "Mưa nhỏ", 63: "Mưa vừa", 65: "Mưa to",
+    66: "Mưa đá nhẹ", 67: "Mưa đá nặng",
+    71: "Tuyết nhẹ", 73: "Tuyết vừa", 75: "Tuyết dày",
+    77: "Hạt tuyết",
     80: "Mưa rào nhẹ", 81: "Mưa rào", 82: "Mưa rào rất to",
+    85: "Tuyết rào nhẹ", 86: "Tuyết rào nặng",
     95: "Dông bão", 96: "Dông kèm mưa đá", 99: "Dông kèm mưa đá to"
 }
 
@@ -113,7 +155,7 @@ def get_location_data(query):
     return results
 
 # =========================================================
-# 2. VIEW CHÍNH (HOME) - ĐÃ SỬA LỖI LƯU LỊCH SỬ
+# 2. VIEW CHÍNH (HOME)
 # =========================================================
 
 @login_required(login_url='login')
@@ -121,17 +163,14 @@ def home_view(request):
     weather_data = None
     error_msg = None
     
-    # Mặc định: Hà Nội
     final_lat, final_lon = 21.0285, 105.8542
     display_name = "Hà Nội, Việt Nam"
     
-    # --- LẤY DỮ LIỆU TỪ REQUEST ---
     city_req = request.POST.get('city') or request.GET.get('city')
     lat_req = request.GET.get('lat')
     lon_req = request.GET.get('lon')
-    
-    # --- LẤY NGÀY ĐƯỢC CHỌN ---
     date_req = request.POST.get('date') or request.GET.get('date')
+    
     is_historical = False
     display_date = datetime.now()
 
@@ -141,12 +180,11 @@ def home_view(request):
             display_date = req_date_obj
             if req_date_obj < datetime.now().date():
                 is_historical = True
-        except:
-            pass
+        except: pass
 
-    should_save = False # Cờ đánh dấu xem có phải là tìm kiếm chủ động không
+    should_save = False 
 
-    # --- LOGIC SESSION ---
+    # --- LOGIC SESSION & TỌA ĐỘ ---
     if lat_req and lon_req:
         request.session['home_city_coords'] = f"{lat_req},{lon_req}"
         if 'home_city_name' in request.session: del request.session['home_city_name']
@@ -165,18 +203,13 @@ def home_view(request):
                     city_req = last.city
                     request.session['home_city_name'] = city_req
 
-    # Xử lý tọa độ/tên để lấy final_lat, final_lon
     if lat_req and lon_req:
         try:
             final_lat, final_lon = float(lat_req), float(lon_req)
             has_valid_name = city_req and len(city_req) > 2 and not any(c.isdigit() for c in city_req[:4])
-            if has_valid_name:
-                display_name = city_req
-            else:
-                display_name = get_city_name_from_coords(final_lat, final_lon)
+            display_name = city_req if has_valid_name else get_city_name_from_coords(final_lat, final_lon)
             should_save = True
         except: error_msg = "Tọa độ lỗi"
-
     elif city_req:
         locs = get_location_data(city_req)
         if locs:
@@ -190,11 +223,13 @@ def home_view(request):
     # --- GỌI API THỜI TIẾT ---
     if not error_msg:
         try:
+            current_hour_idx = datetime.now().hour
+
             if is_historical:
-                # --- API LỊCH SỬ (Giữ nguyên logic cũ) ---
+                # --- API LỊCH SỬ ---
                 url = (f"https://archive-api.open-meteo.com/v1/archive?latitude={final_lat}&longitude={final_lon}"
                        f"&start_date={date_req}&end_date={date_req}"
-                       f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,rain,weather_code,cloud_cover,wind_speed_10m,pressure_msl"
+                       f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,pressure_msl"
                        f"&daily=temperature_2m_max,temperature_2m_min&timezone=auto")
                 
                 res = requests.get(url, timeout=8, verify=False).json()
@@ -202,86 +237,76 @@ def home_view(request):
                 if 'hourly' in res:
                     hourly = res['hourly']
                     daily = res.get('daily', {})
-                    idx = 12 # Lấy lúc 12:00 trưa
+                    idx = 12 
                     
-                    w_code = hourly['weather_code'][idx] if hourly['weather_code'][idx] is not None else 0
-                    desc = WMO_CODES.get(w_code, "Không có dữ liệu")
+                    precip_list = hourly.get('precipitation', [])
+                    total_rain_so_far = sum(p for p in precip_list if p is not None)
 
                     weather_data = {
                         'temp': round(hourly['temperature_2m'][idx]),
                         'humidity': hourly['relative_humidity_2m'][idx],
                         'wind_speed': hourly['wind_speed_10m'][idx],
                         'feels_like': round(hourly['apparent_temperature'][idx]),
-                        'rain': hourly['rain'][idx],
+                        'rain_display': round(total_rain_so_far, 1), 
                         'pressure': hourly['pressure_msl'][idx],
-                        'visibility': 10.0,
-                        'description': desc,
+                        'description': WMO_CODES.get(hourly['weather_code'][idx], "Không có dữ liệu"),
                         'cloud_cover': hourly['cloud_cover'][idx],
                         'uv_index': 0,
                         'min_temp': round(daily['temperature_2m_min'][0]) if 'temperature_2m_min' in daily else 0,
                         'max_temp': round(daily['temperature_2m_max'][0]) if 'temperature_2m_max' in daily else 0,
                     }
+
             else:
-                # --- API DỰ BÁO / HIỆN TẠI (ĐÃ CẬP NHẬT FULL PARAM MỚI) ---
+                # --- API HIỆN TẠI (FORECAST) ---
                 url = "https://api.open-meteo.com/v1/forecast"
-                
-                # Bộ tham số đầy đủ từ link bạn gửi
                 params = {
                     'latitude': final_lat,
                     'longitude': final_lon,
-                    'daily': 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,daylight_duration,sunshine_duration,uv_index_max,uv_index_clear_sky_max,rain_sum,showers_sum,precipitation_sum,snowfall_sum,precipitation_hours,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,shortwave_radiation_sum,et0_fao_evapotranspiration,temperature_2m_mean,apparent_temperature_mean,cape_mean,cape_max,cape_min,cloud_cover_mean,cloud_cover_max,cloud_cover_min,dew_point_2m_mean,dew_point_2m_max,dew_point_2m_min,et0_fao_evapotranspiration_sum,growing_degree_days_base_0_limit_50,leaf_wetness_probability_mean,precipitation_probability_mean,precipitation_probability_min,relative_humidity_2m_mean,relative_humidity_2m_max,relative_humidity_2m_min,snowfall_water_equivalent_sum,pressure_msl_mean,pressure_msl_max,pressure_msl_min,surface_pressure_mean,surface_pressure_max,surface_pressure_min,updraft_max,visibility_mean,visibility_min,visibility_max,winddirection_10m_dominant,wind_gusts_10m_mean,wind_speed_10m_mean,wind_gusts_10m_min,wind_speed_10m_min,wet_bulb_temperature_2m_mean,wet_bulb_temperature_2m_max,wet_bulb_temperature_2m_min,vapour_pressure_deficit_max',
-                    'hourly': 'temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,precipitation,rain,showers,snowfall,snow_depth,weather_code,pressure_msl,surface_pressure,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,visibility,evapotranspiration,et0_fao_evapotranspiration,vapour_pressure_deficit,wind_speed_10m,wind_speed_80m,wind_speed_120m,wind_speed_180m,wind_direction_10m,wind_direction_80m,wind_direction_120m,wind_direction_180m,wind_gusts_10m,temperature_80m,temperature_120m,temperature_180m,soil_temperature_0cm,soil_temperature_6cm,soil_temperature_18cm,soil_temperature_54cm,soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm,uv_index,uv_index_clear_sky,is_day,wet_bulb_temperature_2m,sunshine_duration,total_column_integrated_water_vapour,cape,lifted_index,convective_inhibition,boundary_layer_height,freezing_level_height,shortwave_radiation,direct_radiation,diffuse_radiation,direct_normal_irradiance,global_tilted_irradiance,terrestrial_radiation,shortwave_radiation_instant,direct_radiation_instant,diffuse_radiation_instant,direct_normal_irradiance_instant,global_tilted_irradiance_instant,terrestrial_radiation_instant,temperature_1000hPa,temperature_975hPa,temperature_950hPa,temperature_925hPa,temperature_900hPa,temperature_850hPa,temperature_800hPa,temperature_700hPa,temperature_600hPa,temperature_500hPa,temperature_400hPa,temperature_300hPa,temperature_250hPa,temperature_200hPa,temperature_150hPa,temperature_100hPa,temperature_70hPa,temperature_50hPa,temperature_30hPa',
-                    'current': 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
-                    'minutely_15': 'temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation,shortwave_radiation,direct_radiation,diffuse_radiation,direct_normal_irradiance,global_tilted_irradiance,terrestrial_radiation,rain,snowfall,snowfall_height,freezing_level_height,sunshine_duration,shortwave_radiation_instant,direct_radiation_instant,diffuse_radiation_instant,direct_normal_irradiance_instant,global_tilted_irradiance_instant,terrestrial_radiation_instant,weather_code,wind_speed_10m,wind_speed_80m,wind_direction_10m,wind_direction_80m,wind_gusts_10m,cape,visibility,lightning_potential,is_day',
+                    'daily': 'weather_code,temperature_2m_max,temperature_2m_min,uv_index_max',
+                    'hourly': 'visibility,precipitation', 
+                    'current': 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,weather_code,cloud_cover,pressure_msl,wind_speed_10m',
+                    'minutely_15': 'visibility',
                     'timezone': 'auto'
                 }
                 
-                # Gọi request (dùng verify=False theo code cũ của bạn)
                 res = requests.get(url, params=params, timeout=8, verify=False).json()
                 
                 if 'current' in res:
-                    curr = res['current'] # API mới trả về key 'current'
+                    curr = res['current']
                     daily = res.get('daily', {})
                     hourly = res.get('hourly', {})
 
-                    # Xử lý weather code
-                    w_code = curr.get('weather_code', 0)
-                    desc = WMO_CODES.get(w_code, "Có mây")
-                    
-                    # Xử lý visibility (Do current API mới không có visibility, ta lấy từ hourly[0] hoặc minutely)
-                    vis_val = 10000 # Mặc định 10km
+                    total_rain_so_far = 0.0
+                    if 'precipitation' in hourly:
+                        precip_so_far = hourly['precipitation'][:current_hour_idx + 1]
+                        total_rain_so_far = sum(p for p in precip_so_far if p is not None)
+
+                    vis_val = 10000 
                     if 'visibility' in hourly and len(hourly['visibility']) > 0:
-                         vis_val = hourly['visibility'][0] # Lấy giờ hiện tại
+                         vis_val = hourly['visibility'][0] 
                     elif 'visibility' in res.get('minutely_15', {}):
                          vis_val = res['minutely_15']['visibility'][0]
-                    
-                    vis_km = round(vis_val / 1000, 1) if vis_val is not None else 10.0
-                    
-                    # Xử lý UV
+
                     uv_val = daily['uv_index_max'][0] if 'uv_index_max' in daily and len(daily['uv_index_max']) > 0 else 0
 
-                    # Mapping dữ liệu mới vào cấu trúc cũ
                     weather_data = {
-                        'temp': round(curr['temperature_2m']),          # Mới: temperature_2m
-                        'humidity': curr['relative_humidity_2m'],       # Mới: relative_humidity_2m
-                        'wind_speed': curr['wind_speed_10m'],           # Mới: wind_speed_10m
+                        'temp': round(curr['temperature_2m']),
+                        'humidity': curr['relative_humidity_2m'],
+                        'wind_speed': curr['wind_speed_10m'],
                         'feels_like': round(curr['apparent_temperature']),
-                        'rain': curr.get('rain', 0.0),
+                        'rain_display': round(total_rain_so_far, 1),
                         'pressure': curr.get('pressure_msl', 1013),
-                        'visibility': vis_km,
-                        'description': desc,
+                        'visibility': round(vis_val / 1000, 1) if vis_val is not None else 10.0,
+                        'description': WMO_CODES.get(curr.get('weather_code', 0), "Có mây"),
                         'cloud_cover': curr.get('cloud_cover', 0),
                         'uv_index': uv_val,
                         'min_temp': round(daily['temperature_2m_min'][0]) if 'temperature_2m_min' in daily else 0,
                         'max_temp': round(daily['temperature_2m_max'][0]) if 'temperature_2m_max' in daily else 0,
                     }
 
-            # --- LƯU LỊCH SỬ ---
-            if should_save and not is_historical:
-                if request.user.is_authenticated and weather_data:
-                    # Xóa bản ghi cũ trùng tên để cập nhật mới nhất
+            if should_save and not is_historical and weather_data:
+                if request.user.is_authenticated:
                     SearchHistory.objects.filter(user=request.user, city=display_name).delete()
-                    
                     SearchHistory.objects.create(
                         user=request.user, city=display_name,
                         temp=weather_data['temp'], humidity=weather_data['humidity'],
@@ -317,7 +342,7 @@ def city_suggest(request):
     return JsonResponse(get_location_data(q), safe=False)
 
 # =========================================================
-# 4. VIEW DỰ BÁO (PREDICTION)
+# 4. VIEW DỰ BÁO (PREDICTION) - ĐÃ CÓ TIMEDELTA
 # =========================================================
 
 @login_required(login_url='login')
@@ -340,6 +365,7 @@ def prediction_view(request):
         lat, lon = best['lat'], best['lon']
         
         try:
+            # Dùng timedelta để lấy dữ liệu 3 năm trước
             end_date_hist = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
             start_date_hist = (datetime.now() - timedelta(days=1095)).strftime('%Y-%m-%d')
             
@@ -456,6 +482,112 @@ def prediction_view(request):
             
     return render(request, 'prediction.html', context)
 
+# =========================================================
+# 5. VIEW CHI TIẾT (DETAIL) - GIAO DIỆN PRO MỚI
+# =========================================================
+@login_required(login_url='login')
+def detail_view(request):
+    raw_lat = request.GET.get('lat')
+    raw_lon = request.GET.get('lon')
+    city = request.GET.get('city', 'Địa điểm')
+    date_str = request.GET.get('date') 
+
+    if not raw_lat or not raw_lon:
+        return redirect('home')
+
+    lat = raw_lat.replace(',', '.')
+    lon = raw_lon.replace(',', '.')
+
+    # 1. Xử lý ngày & Logic chọn API
+    if not date_str:
+        target_date = date.today()
+        date_str = target_date.strftime('%Y-%m-%d')
+        is_history = False
+    else:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            # --- [SỬA QUAN TRỌNG] ---
+            # Chỉ dùng Archive API nếu ngày đó cũ hơn 10 ngày so với hôm nay.
+            # Các ngày gần đây (VD: hôm qua, tuần trước) vẫn dùng Forecast API để có đủ UV/Đất.
+            cutoff_date = date.today() - timedelta(days=10)
+            is_history = target_date < cutoff_date
+            
+        except ValueError:
+            target_date = date.today()
+            date_str = target_date.strftime('%Y-%m-%d')
+            is_history = False
+
+    # 2. Cấu hình biến API
+    hourly_vars_list = [
+        "temperature_2m", "relative_humidity_2m", "apparent_temperature",
+        "precipitation", "weather_code", "pressure_msl", "cloud_cover", 
+        "wind_speed_10m", "uv_index", "soil_moisture_0_to_1cm", "is_day" 
+    ]
+    hourly_vars_str = ",".join(hourly_vars_list)
+    
+    base_url = "https://archive-api.open-meteo.com/v1/archive" if is_history else "https://api.open-meteo.com/v1/forecast"
+    
+    url = (f"{base_url}?latitude={lat}&longitude={lon}"
+           f"&start_date={date_str}&end_date={date_str}"
+           f"&hourly={hourly_vars_str}&timezone=auto")
+
+    hourly_data = []
+    
+    try:
+        res = requests.get(url, timeout=10, verify=False).json()
+        
+        if 'hourly' in res:
+            h = res['hourly']
+            for i in range(len(h['time'])):
+                time_val = h['time'][i]
+                
+                code = h['weather_code'][i]
+                is_day = h['is_day'][i] if 'is_day' in h else 1
+                if code is None: code = 0
+
+                # Xử lý mô tả: Nếu là ban đêm, đổi "Nắng" thành "Quang đãng"
+                desc = WMO_CODES.get(code, "Có mây")
+                if is_day == 0: 
+                    if code == 0: desc = "Quang đãng (Đêm)"
+                    elif code == 1: desc = "Ít mây (Đêm)"
+                    else: desc = desc.replace("nắng", "quang đãng").replace("Nắng", "Quang đãng")
+
+                hour_info = {
+                    'time': time_val.split('T')[1] if 'T' in time_val else time_val,
+                    'temp': h['temperature_2m'][i],
+                    'humidity': h['relative_humidity_2m'][i],
+                    'feels_like': h['apparent_temperature'][i],
+                    'rain': h['precipitation'][i],
+                    'wind': h['wind_speed_10m'][i],
+                    'cloud': h.get('cloud_cover', [0]*24)[i],
+                    
+                    # Fix lỗi None data
+                    'uv': h.get('uv_index', [0]*24)[i],
+                    'soil_moisture': h.get('soil_moisture_0_to_1cm', [0]*24)[i],
+                    
+                    'description': desc,
+                    'code': code,
+                    'icon_name': get_icon_name(code, is_day) 
+                }
+                
+                if hour_info['uv'] is None: hour_info['uv'] = 0
+                if hour_info['soil_moisture'] is None: hour_info['soil_moisture'] = 0.0
+
+                hourly_data.append(hour_info)
+    except Exception as e:
+        print(f"Detail API Error: {e}")
+
+    context = {
+        'city': city,
+        'date': target_date,
+        'hourly_data': hourly_data,
+        'lat': lat,
+        'lon': lon
+    }
+    
+    return render(request, 'detail.html', context)
+
 @login_required
 def history_view(request):
     return render(request, 'history.html', {'history': SearchHistory.objects.filter(user=request.user).order_by('-search_time')})
@@ -464,7 +596,6 @@ def history_view(request):
 def profile_view(request):
     h = SearchHistory.objects.filter(user=request.user)
     last_city = h.last().city.split(',')[0] if h.exists() else "Chưa có"
-    
     user_email = request.user.email if request.user.email else "Chưa cập nhật email"
     
     if request.user.date_joined:
@@ -540,162 +671,3 @@ def change_password_view(request):
         form = PasswordChangeForm(request.user)
         
     return render(request, 'change_password.html', {'form': form})
-# --- BẢNG MÃ WMO (Dịch mã thời tiết sang tiếng Việt) ---
-WMO_CODES = {
-    0: "Trời quang đãng",
-    1: "Chủ yếu là trời trong", 2: "Có mây một phần", 3: "Nhiều mây",
-    45: "Sương mù", 48: "Sương mù rime",
-    51: "Mưa phùn nhẹ", 53: "Mưa phùn vừa", 55: "Mưa phùn dày đặc",
-    56: "Mưa phùn băng giá nhẹ", 57: "Mưa phùn băng giá dày",
-    61: "Mưa nhỏ", 63: "Mưa vừa", 65: "Mưa to",
-    66: "Mưa băng giá nhẹ", 67: "Mưa băng giá nặng",
-    71: "Tuyết rơi nhẹ", 73: "Tuyết rơi vừa", 75: "Tuyết rơi nặng",
-    77: "Hạt tuyết",
-    80: "Mưa rào nhẹ", 81: "Mưa rào vừa", 82: "Mưa rào rất to",
-    85: "Tuyết rào nhẹ", 86: "Tuyết rào nặng",
-    95: "Dông nhẹ hoặc vừa",
-    96: "Dông kèm mưa đá nhẹ", 99: "Dông kèm mưa đá nặng"
-}
-
-# =========================================================
-# HÀM 1: LẤY THÔNG TIN WIKI (NÂNG CẤP)
-# =========================================================
-def get_wiki_info(city_name, lat, lon):
-    """
-    Lấy đoạn giới thiệu ngắn từ Wikipedia tiếng Việt.
-    Ưu tiên tìm theo tên thành phố, nếu không thấy thì tìm theo tọa độ.
-    """
-    summary = "Không tìm thấy thông tin mô tả cho địa điểm này."
-    wiki_url = "#"
-    
-    try:
-        # Cách 1: Tìm theo tên địa điểm (Chuẩn hóa tên)
-        clean_name = city_name.split(',')[0].strip()
-        
-        api_url = f"https://vi.wikipedia.org/api/rest_v1/page/summary/{quote(clean_name)}"
-        res = requests.get(api_url, timeout=5).json()
-        
-        if 'extract' in res:
-            summary = res['extract']
-            wiki_url = res.get('content_urls', {}).get('desktop', {}).get('page', '#')
-        else:
-            # Cách 2: Nếu không ra tên, dùng GeoSearch tìm bài viết gần tọa độ nhất
-            geo_url = f"https://vi.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord={lat}|{lon}&gsradius=10000&gslimit=1&format=json"
-            geo_res = requests.get(geo_url, timeout=5).json()
-            
-            pages = geo_res.get('query', {}).get('geosearch', [])
-            if pages:
-                page_title = pages[0]['title']
-                # Gọi lại API summary với title tìm được
-                api_url_2 = f"https://vi.wikipedia.org/api/rest_v1/page/summary/{quote(page_title)}"
-                res_2 = requests.get(api_url_2, timeout=5).json()
-                if 'extract' in res_2:
-                    summary = res_2['extract']
-                    wiki_url = res_2.get('content_urls', {}).get('desktop', {}).get('page', '#')
-
-    except Exception as e:
-        print(f"Wiki Error: {e}")
-
-    return {'summary': summary, 'url': wiki_url}
-
-# =========================================================
-# HÀM 2: VIEW CHI TIẾT (FULL DATA + WIKI)
-# =========================================================
-@login_required(login_url='login')
-def detail_view(request):
-    # 1. Lấy tham số từ URL
-    raw_lat = request.GET.get('lat')
-    raw_lon = request.GET.get('lon')
-    city = request.GET.get('city', 'Địa điểm')
-    date_str = request.GET.get('date') 
-
-    # Nếu thiếu tọa độ, quay về trang chủ
-    if not raw_lat or not raw_lon:
-        return redirect('home')
-
-    # Thay dấu phẩy thành dấu chấm
-    lat = raw_lat.replace(',', '.')
-    lon = raw_lon.replace(',', '.')
-
-    # 2. Xử lý ngày tháng
-    if not date_str:
-        target_date = date.today()
-        date_str = target_date.strftime('%Y-%m-%d')
-        is_history = False
-    else:
-        try:
-            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            is_history = target_date < date.today()
-        except ValueError:
-            target_date = date.today()
-            date_str = target_date.strftime('%Y-%m-%d')
-            is_history = False
-
-    # 3. Lấy thông tin Wiki
-    try:
-        # Giả định bạn đã có hàm get_wiki_info
-        wiki_data = get_wiki_info(city, lat, lon)
-    except Exception:
-        wiki_data = {'summary': 'Không thể tải thông tin.', 'url': '#'}
-
-    # 4. Cấu hình API Thời tiết
-    # QUAN TRỌNG: Đã đổi 'rain' thành 'precipitation' để lấy tổng lượng mưa
-    variables = [
-        "temperature_2m", "relative_humidity_2m", "apparent_temperature",
-        "precipitation", "weather_code", "pressure_msl", "cloud_cover", 
-        "wind_speed_10m", "uv_index", "soil_moisture_0_to_1cm"
-    ]
-    hourly_vars = ",".join(variables)
-    
-    base_url = "https://archive-api.open-meteo.com/v1/archive" if is_history else "https://api.open-meteo.com/v1/forecast"
-    
-    url = (f"{base_url}?latitude={lat}&longitude={lon}"
-           f"&start_date={date_str}&end_date={date_str}"
-           f"&hourly={hourly_vars}&timezone=auto")
-
-    hourly_data = []
-    
-    try:
-        res = requests.get(url, timeout=10, verify=False).json()
-        
-        if 'hourly' in res:
-            h = res['hourly']
-            for i in range(len(h['time'])):
-                time_val = h['time'][i]
-                
-                code = h['weather_code'][i]
-                if code is None: code = 0
-
-                hour_info = {
-                    'time': time_val.split('T')[1] if 'T' in time_val else time_val,
-                    'temp': h['temperature_2m'][i],
-                    'humidity': h['relative_humidity_2m'][i],
-                    'feels_like': h['apparent_temperature'][i],
-                    
-                    # QUAN TRỌNG: Lấy dữ liệu từ cột precipitation
-                    'rain': h['precipitation'][i],
-                    
-                    'wind': h['wind_speed_10m'][i],
-                    'cloud': h.get('cloud_cover', [0]*24)[i],
-                    'uv': h.get('uv_index', [0]*24)[i] if h.get('uv_index') else 0,
-                    'soil_moisture': h.get('soil_moisture_0_to_1cm', [0]*24)[i] if h.get('soil_moisture_0_to_1cm') else 0,
-                    'description': WMO_CODES.get(code, "Có mây"), 
-                    'code': code
-                }
-                hourly_data.append(hour_info)
-        else:
-            print("API Error Response:", res)
-
-    except Exception as e:
-        print(f"Detail API Error: {e}")
-
-    context = {
-        'city': city,
-        'date': target_date,
-        'wiki': wiki_data,
-        'hourly_data': hourly_data,
-        'lat': lat,
-        'lon': lon
-    }
-    
-    return render(request, 'detail.html', context)
