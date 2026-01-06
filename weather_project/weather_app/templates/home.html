@@ -22,7 +22,7 @@
         left: 50%;
         transform: translateX(-50%);
         width: 90%;
-        max-width: 550px;
+        max-width: 600px;
         z-index: 100;
     }
 
@@ -44,6 +44,39 @@
         box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
         border-color: #00f2fe;
         outline: none;
+    }
+
+    /* --- CSS CHO Ô CHỌN NGÀY --- */
+    .date-picker-glass {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        border-radius: 50px;
+        padding: 15px 20px;
+        font-family: inherit;
+        outline: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        min-width: 50px;
+    }
+
+    @media (min-width: 768px) {
+        .date-picker-glass {
+            min-width: 160px;
+        }
+    }
+
+    .date-picker-glass:focus {
+        background: rgba(15, 23, 42, 0.95);
+        border-color: #00f2fe;
+        box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+    }
+
+    /* Đổi màu icon lịch sang màu trắng */
+    .date-picker-glass::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        cursor: pointer;
     }
 
     /* Hộp gợi ý */
@@ -195,7 +228,7 @@
         border: 2px solid #00f2fe;
         color: #00f2fe;
         font-size: 1.4rem;
-        z-index: 100;
+        z-index: 2000;
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -269,17 +302,17 @@
     </iframe>
 </div>
 
-<button class="btn-gps" onclick="getLocation()" title="Vị trí của tôi">
+<button type="button" class="btn-gps" onclick="getLocation()" title="Vị trí của tôi">
     <i class="fa-solid fa-location-crosshairs"></i>
 </button>
 
 <div class="floating-search">
-    <form id="weather-form" action="" method="POST" style="margin: 0; width: 100%;">
+    <form id="weather-form" action="" method="POST" style="margin: 0; width: 100%;" class="d-flex gap-2">
         {% csrf_token %}
         <input type="hidden" id="lat" name="lat">
         <input type="hidden" id="lon" name="lon">
 
-        <div class="position-relative">
+        <div class="position-relative flex-grow-1">
             <i class="fa-solid fa-magnifying-glass position-absolute text-white-50"
                 style="left: 20px; top: 50%; transform: translateY(-50%); z-index: 10;"></i>
 
@@ -287,6 +320,10 @@
                 placeholder="Nhập địa điểm (VD: Phường 1, Quận 5...)" autocomplete="off"
                 value="{% if not error %}{{ full_city_name|default:city_name|default:'' }}{% endif %}">
         </div>
+
+        <input type="date" id="date-input" name="date" class="date-picker-glass" 
+               title="Chọn ngày xem thời tiết"
+               value="{{ today|date:'Y-m-d' }}">
     </form>
 
     <div id="suggestions-list" class="suggestions-box"></div>
@@ -363,8 +400,20 @@
         <div class="display-3 fw-bold text-white" style="text-shadow: 0 0 20px rgba(255,255,255,0.2);">
             {{ current.temp }}°
         </div>
+        
         <div class="badge bg-light bg-opacity-10 text-wrap border border-white border-opacity-25 px-3 py-2 mt-2">
             {{ current.description }}
+        </div>
+
+        <div class="d-flex justify-content-center gap-4 mt-3">
+            <div class="text-warning d-flex align-items-center" title="Nhiệt độ cao nhất">
+                <i class="fa-solid fa-temperature-arrow-up me-2"></i>
+                <span class="fw-bold fs-5">{{ current.max_temp }}°</span>
+            </div>
+            <div class="text-info d-flex align-items-center" title="Nhiệt độ thấp nhất">
+                <i class="fa-solid fa-temperature-arrow-down me-2"></i>
+                <span class="fw-bold fs-5">{{ current.min_temp }}°</span>
+            </div>
         </div>
     </div>
 
@@ -501,9 +550,24 @@
                 loadingOverlay.style.display = 'flex';
             });
         }
+
+        // 4. Cấu hình ô chọn ngày (Chỉ cho chọn quá khứ đến hôm nay)
+        const dateInput = document.getElementById('date-input');
+        if (dateInput) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            
+            // Định dạng YYYY-MM-DD
+            const maxDate = `${yyyy}-${mm}-${dd}`;
+            
+            // Set ngày tối đa là hôm nay
+            dateInput.max = maxDate;
+        }
     });
 
-    // 4. Xử lý nút GPS
+    // 5. Xử lý nút GPS
     function getLocation() {
         if (navigator.geolocation) {
             document.getElementById('weather-loading').style.display = 'flex';
@@ -522,7 +586,21 @@
 
     function showError(error) {
         document.getElementById('weather-loading').style.display = 'none';
-        alert("Không thể lấy vị trí của bạn. Vui lòng kiểm tra quyền truy cập vị trí.");
+        
+        // Hiển thị lỗi rõ hơn
+        let msg = "Lỗi không xác định.";
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                msg = "Bạn đã từ chối quyền truy cập vị trí.";
+                break;
+            case error.POSITION_UNAVAILABLE:
+                msg = "Không thể lấy thông tin vị trí.";
+                break;
+            case error.TIMEOUT:
+                msg = "Hết thời gian chờ lấy vị trí.";
+                break;
+        }
+        alert(msg);
     }
 </script>
 

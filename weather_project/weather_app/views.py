@@ -2,21 +2,20 @@ from prophet import Prophet
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 
-# --- NHÓM AUTH & SESSION (Đã bổ sung update_session_auth_hash) ---
+# --- NHÓM AUTH & SESSION ---
 from django.contrib.auth import login, logout, update_session_auth_hash
 
-# --- NHÓM FORMS (Đã bổ sung PasswordChangeForm) ---
+# --- NHÓM FORMS ---
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, PasswordChangeForm
 
-# --- NHÓM FORMS CỦA BẠN (Đã bổ sung ProfileUpdateForm) ---
-from .forms import RegisterForm, ProfileUpdateForm 
-from .forms import ProfileUpdateForm, ProfilePicForm # Import form mới
+# --- NHÓM FORMS CỦA BẠN ---
+from .forms import RegisterForm, ProfileUpdateForm, ProfilePicForm
 
 # --- NHÓM MODEL ---
 from .models import SearchHistory
-from .models import UserProfile # Nhớ import model mới
+from .models import UserProfile
 
-# --- NHÓM TIỆN ÍCH (Đã bổ sung messages) ---
+# --- NHÓM TIỆN ÍCH ---
 from django.contrib import messages 
 from django.http import JsonResponse
 
@@ -54,10 +53,7 @@ WMO_CODES = {
 # =========================================================
 
 def get_city_name_from_coords(lat, lon):
-    """
-    Dịch ngược tọa độ ra Tên (Reverse Geocoding) - CHỐNG HIỆN SỐ
-    """
-    # Cách 1: Nominatim (OpenStreetMap)
+    """ Dịch ngược tọa độ ra Tên (Reverse Geocoding) """
     try:
         url = "https://nominatim.openstreetmap.org/reverse"
         params = {'lat': lat, 'lon': lon, 'format': 'json', 'zoom': 14, 'accept-language': 'vi'}
@@ -66,11 +62,9 @@ def get_city_name_from_coords(lat, lon):
             data = res.json()
             name = data.get('display_name', '')
             if name:
-                # Lấy 3 thành phần đầu cho gọn (VD: Phường, Quận, Thành phố)
                 return ", ".join(name.split(', ')[:3])
     except: pass
 
-    # Cách 2: BigDataCloud (Dự phòng cực mạnh nếu Cách 1 lỗi/chậm)
     try:
         url_bk = "https://api.bigdatacloud.net/data/reverse-geocode-client"
         params_bk = {'latitude': lat, 'longitude': lon, 'localityLanguage': 'vi'}
@@ -87,8 +81,6 @@ def get_city_name_from_coords(lat, lon):
 def get_location_data(query):
     """ Tìm kiếm địa điểm (Global) """
     results = []
-    
-    # 1. Nominatim
     try:
         url_nom = "https://nominatim.openstreetmap.org/search"
         params_nom = {'q': query, 'format': 'json', 'addressdetails': 1, 'limit': 5, 'accept-language': 'vi'}
@@ -103,7 +95,6 @@ def get_location_data(query):
                 })
     except: pass
 
-    # 2. Open-Meteo (Dự phòng)
     if not results:
         try:
             url_om = "https://geocoding-api.open-meteo.com/v1/search"
@@ -121,7 +112,7 @@ def get_location_data(query):
     return results
 
 # =========================================================
-# 2. VIEW CHÍNH (HOME) - ĐÃ SỬA LỖI VARIABLE DOES NOT EXIST VÀ SESSION
+# 2. VIEW CHÍNH (HOME) - ĐÃ CẬP NHẬT TÍNH NĂNG CHỌN NGÀY
 # =========================================================
 
 @login_required(login_url='login')
@@ -133,45 +124,52 @@ def home_view(request):
     final_lat, final_lon = 21.0285, 105.8542
     display_name = "Hà Nội, Việt Nam"
     
-    # Lấy request
+    # --- LẤY DỮ LIỆU TỪ REQUEST ---
     city_req = request.POST.get('city') or request.GET.get('city')
     lat_req = request.GET.get('lat')
     lon_req = request.GET.get('lon')
+    
+    # --- MỚI: LẤY NGÀY ĐƯỢC CHỌN ---
+    date_req = request.POST.get('date') or request.GET.get('date')
+    is_historical = False
+    display_date = datetime.now()
+
+    # Kiểm tra xem có phải ngày quá khứ không
+    if date_req:
+        try:
+            req_date_obj = datetime.strptime(date_req, '%Y-%m-%d').date()
+            display_date = req_date_obj
+            # Nếu ngày chọn nhỏ hơn ngày hiện tại -> Là lịch sử
+            if req_date_obj < datetime.now().date():
+                is_historical = True
+        except:
+            pass # Nếu lỗi định dạng ngày thì cứ để mặc định là hôm nay
+
     should_save = False
 
-    # --- LOGIC SESSION (MỚI THÊM) ---
-    # Ưu tiên 1: GPS
+    # --- LOGIC SESSION & ĐỊNH VỊ (GIỮ NGUYÊN) ---
     if lat_req and lon_req:
         request.session['home_city_coords'] = f"{lat_req},{lon_req}"
-        # Xóa tên cũ trong session để ưu tiên tọa độ
         if 'home_city_name' in request.session: del request.session['home_city_name']
-    
-    # Ưu tiên 2: Tìm kiếm mới
     elif city_req:
         request.session['home_city_name'] = city_req
         if 'home_city_coords' in request.session: del request.session['home_city_coords']
-
-    # Ưu tiên 3: Lấy từ Session (Nếu không thao tác gì)
     else:
         if request.session.get('home_city_coords'):
             lat_req, lon_req = request.session['home_city_coords'].split(',')
         elif request.session.get('home_city_name'):
             city_req = request.session['home_city_name']
         else:
-            # Ưu tiên 4: Lấy từ DB (Chỉ khi session trống - Lần đầu login)
             if request.user.is_authenticated:
                 last = SearchHistory.objects.filter(user=request.user).last()
                 if last:
                     city_req = last.city
-                    request.session['home_city_name'] = city_req # Lưu lại luôn
+                    request.session['home_city_name'] = city_req
 
-    # --- XỬ LÝ VỊ TRÍ (CODE CŨ) ---
-    
     # TH1: Có tọa độ
     if lat_req and lon_req:
         try:
             final_lat, final_lon = float(lat_req), float(lon_req)
-            # Kiểm tra tên
             has_valid_name = city_req and len(city_req) > 2 and not any(c.isdigit() for c in city_req[:4])
             if has_valid_name:
                 display_name = city_req
@@ -191,55 +189,93 @@ def home_view(request):
             error_msg = f"Không tìm thấy: {city_req}"
             display_name = city_req
 
-    # --- GỌI API THỜI TIẾT ---
+    # --- GỌI API THỜI TIẾT (ĐÃ SỬA ĐỂ HỖ TRỢ LỊCH SỬ) ---
     if not error_msg:
         try:
-            url = f"https://api.open-meteo.com/v1/forecast?latitude={final_lat}&longitude={final_lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,cloud_cover,wind_speed_10m,pressure_msl,visibility&daily=uv_index_max,temperature_2m_max,temperature_2m_min&timezone=auto"
-            
-            res = requests.get(url, timeout=8, verify=False).json()
-            
-            if 'current' in res:
-                curr = res['current']
-                daily = res.get('daily', {})
+            if is_historical:
+                # ==========================================
+                # TRƯỜNG HỢP 1: XEM LỊCH SỬ (QUÁ KHỨ)
+                # ==========================================
+                # API lịch sử trả về dữ liệu theo giờ. Ta sẽ lấy giờ thứ 12 (12:00 trưa) để hiển thị.
+                url = (f"https://archive-api.open-meteo.com/v1/archive?latitude={final_lat}&longitude={final_lon}"
+                       f"&start_date={date_req}&end_date={date_req}"
+                       f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,rain,weather_code,cloud_cover,wind_speed_10m,pressure_msl"
+                       f"&daily=temperature_2m_max,temperature_2m_min&timezone=auto")
                 
-                w_code = curr.get('weather_code', 0)
-                desc = WMO_CODES.get(w_code, "Có mây")
+                res = requests.get(url, timeout=8, verify=False).json()
                 
-                vis_val = curr.get('visibility')
-                vis_km = round(vis_val / 1000, 1) if vis_val is not None else 10.0
-                
-                uv_val = 0
-                if 'uv_index_max' in daily and len(daily['uv_index_max']) > 0:
-                    uv_val = daily['uv_index_max'][0]
+                if 'hourly' in res:
+                    hourly = res['hourly']
+                    daily = res.get('daily', {})
+                    
+                    # Lấy index 12 (tức là 12:00 trưa) để làm đại diện
+                    idx = 12 
+                    
+                    w_code = hourly['weather_code'][idx] if hourly['weather_code'][idx] is not None else 0
+                    desc = WMO_CODES.get(w_code, "Không có dữ liệu")
 
-                weather_data = {
-                    'temp': round(curr['temperature_2m']),
-                    'humidity': curr['relative_humidity_2m'],
-                    'wind_speed': curr['wind_speed_10m'],
-                    'feels_like': round(curr['apparent_temperature']),
-                    'rain': curr.get('rain', 0.0),
-                    'pressure': curr.get('pressure_msl', 1013),
-                    'visibility': vis_km,
-                    'description': desc,
-                    'cloud_cover': curr.get('cloud_cover', 0),
-                    'uv_index': uv_val,
-                    # Thêm 2 dòng này để tránh lỗi hiển thị nếu home.html cần
-                    'min_temp': round(daily['temperature_2m_min'][0]) if 'temperature_2m_min' in daily else 0,
-                    'max_temp': round(daily['temperature_2m_max'][0]) if 'temperature_2m_max' in daily else 0,
-                }
+                    weather_data = {
+                        'temp': round(hourly['temperature_2m'][idx]),
+                        'humidity': hourly['relative_humidity_2m'][idx],
+                        'wind_speed': hourly['wind_speed_10m'][idx],
+                        'feels_like': round(hourly['apparent_temperature'][idx]),
+                        'rain': hourly['rain'][idx],
+                        'pressure': hourly['pressure_msl'][idx],
+                        'visibility': 10.0, # Lịch sử không có visibility, set mặc định 10km
+                        'description': desc,
+                        'cloud_cover': hourly['cloud_cover'][idx],
+                        'uv_index': 0, # Lịch sử basic không có UV
+                        'min_temp': round(daily['temperature_2m_min'][0]) if 'temperature_2m_min' in daily else 0,
+                        'max_temp': round(daily['temperature_2m_max'][0]) if 'temperature_2m_max' in daily else 0,
+                    }
+            else:
+                # ==========================================
+                # TRƯỜNG HỢP 2: XEM HÔM NAY / TƯƠNG LAI (CODE CŨ)
+                # ==========================================
+                url = f"https://api.open-meteo.com/v1/forecast?latitude={final_lat}&longitude={final_lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,cloud_cover,wind_speed_10m,pressure_msl,visibility&daily=uv_index_max,temperature_2m_max,temperature_2m_min&timezone=auto"
+                
+                res = requests.get(url, timeout=8, verify=False).json()
+                
+                if 'current' in res:
+                    curr = res['current']
+                    daily = res.get('daily', {})
+                    
+                    w_code = curr.get('weather_code', 0)
+                    desc = WMO_CODES.get(w_code, "Có mây")
+                    
+                    vis_val = curr.get('visibility')
+                    vis_km = round(vis_val / 1000, 1) if vis_val is not None else 10.0
+                    
+                    uv_val = 0
+                    if 'uv_index_max' in daily and len(daily['uv_index_max']) > 0:
+                        uv_val = daily['uv_index_max'][0]
 
-                # Chỉ lưu lịch sử khi người dùng CHỦ ĐỘNG tìm kiếm (có request thực)
-                if request.GET.get('city') or request.GET.get('lat'):
-                    if request.user.is_authenticated:
-                        # Xóa cũ lưu mới
-                        SearchHistory.objects.filter(user=request.user, city=display_name).delete()
-                        SearchHistory.objects.create(
-                            user=request.user, city=display_name,
-                            temp=weather_data['temp'], humidity=weather_data['humidity'],
-                            wind_speed=weather_data['wind_speed'], pressure=weather_data['pressure'],
-                            feels_like=weather_data['feels_like'], description=desc,
-                            visibility=vis_km, uv_index=uv_val
-                        )
+                    weather_data = {
+                        'temp': round(curr['temperature_2m']),
+                        'humidity': curr['relative_humidity_2m'],
+                        'wind_speed': curr['wind_speed_10m'],
+                        'feels_like': round(curr['apparent_temperature']),
+                        'rain': curr.get('rain', 0.0),
+                        'pressure': curr.get('pressure_msl', 1013),
+                        'visibility': vis_km,
+                        'description': desc,
+                        'cloud_cover': curr.get('cloud_cover', 0),
+                        'uv_index': uv_val,
+                        'min_temp': round(daily['temperature_2m_min'][0]) if 'temperature_2m_min' in daily else 0,
+                        'max_temp': round(daily['temperature_2m_max'][0]) if 'temperature_2m_max' in daily else 0,
+                    }
+
+            # Chỉ lưu lịch sử khi người dùng CHỦ ĐỘNG tìm kiếm
+            if (request.GET.get('city') or request.GET.get('lat')) and not is_historical:
+                if request.user.is_authenticated and weather_data:
+                    SearchHistory.objects.filter(user=request.user, city=display_name).delete()
+                    SearchHistory.objects.create(
+                        user=request.user, city=display_name,
+                        temp=weather_data['temp'], humidity=weather_data['humidity'],
+                        wind_speed=weather_data['wind_speed'], pressure=weather_data['pressure'],
+                        feels_like=weather_data['feels_like'], description=weather_data['description'],
+                        visibility=weather_data['visibility'], uv_index=weather_data['uv_index']
+                    )
         except Exception as e:
             print(f"API Error: {e}")
             if should_save: error_msg = "Không thể kết nối máy chủ thời tiết."
@@ -248,18 +284,18 @@ def home_view(request):
 
     context = {
         'current': weather_data,
-        'city_name': short_city_name,  # <--- KHẮC PHỤC LỖI VariableDoesNotExist
+        'city_name': short_city_name,
         'full_city_name': display_name,
-        'city': display_name,          # Dự phòng
+        'city': display_name,
         'map_lat': final_lat,
         'map_lon': final_lon,
         'error': error_msg,
-        'today': datetime.now()
+        'today': display_date # Truyền ngày đang xem (hôm nay hoặc quá khứ) ra view
     }
     return render(request, 'home.html', context)
 
 # =========================================================
-# 3. CÁC VIEW KHÁC
+# 3. CÁC VIEW KHÁC (GIỮ NGUYÊN)
 # =========================================================
 
 def city_suggest(request):
@@ -268,24 +304,16 @@ def city_suggest(request):
     return JsonResponse(get_location_data(q), safe=False)
 
 # =========================================================
-# 4. VIEW DỰ BÁO (PREDICTION) - PHIÊN BẢN V6 + BIAS + TOMORROW
+# 4. VIEW DỰ BÁO (PREDICTION)
 # =========================================================
 
 @login_required(login_url='login')
 def prediction_view(request):
-    """
-    PHIÊN BẢN 6.0 FIX: 
-    - Độc lập với trang chủ.
-    - Dự báo từ ngày mai.
-    - Bias Correction (Hiệu chỉnh sai số).
-    """
-    
     if request.method == 'POST':
         city_input = request.POST.get('city', '').strip()
     else:
         city_input = request.GET.get('city', '').strip()
 
-    # Nếu không nhập gì -> Trả về trang trắng (Không tự lấy lịch sử)
     if not city_input:
         return render(request, 'prediction.html')
     
@@ -299,7 +327,6 @@ def prediction_view(request):
         lat, lon = best['lat'], best['lon']
         
         try:
-            # 1. LẤY DỮ LIỆU LỊCH SỬ (3 NĂM)
             end_date_hist = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
             start_date_hist = (datetime.now() - timedelta(days=1095)).strftime('%Y-%m-%d')
             
@@ -309,7 +336,6 @@ def prediction_view(request):
                         f"&timezone=auto")
             res_hist = requests.get(url_hist, timeout=8, verify=False).json()
             
-            # 2. LẤY DỮ LIỆU TƯƠNG LAI (Lấy 8 ngày)
             url_future = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
                           f"&current=temperature_2m"  
                           f"&daily=temperature_2m_max,temperature_2m_min,rain_sum,wind_speed_10m_max,shortwave_radiation_sum"
@@ -317,8 +343,6 @@ def prediction_view(request):
             res_future = requests.get(url_future, timeout=8, verify=False).json()
 
             if 'daily' in res_hist and 'daily' in res_future:
-                
-                # --- A. TRAIN ---
                 hist_data = res_hist['daily']
                 df = pd.DataFrame({
                     'ds': hist_data['time'],
@@ -341,7 +365,6 @@ def prediction_view(request):
                 m.add_regressor('sun')
                 m.fit(df)
                 
-                # --- B. DỰ BÁO (8 NGÀY) ---
                 future = m.make_future_dataframe(periods=8)
                 
                 def get_regressor(key, hist_s):
@@ -357,7 +380,6 @@ def prediction_view(request):
                 
                 forecast = m.predict(future)
                 
-                # --- C. TÍNH BIAS ---
                 current_real_temp = res_future.get('current', {}).get('temperature_2m')
                 today_str = datetime.now().strftime('%Y-%m-%d')
                 ai_today_row = forecast[forecast['ds'].astype(str) == today_str]
@@ -367,11 +389,9 @@ def prediction_view(request):
                     ai_today_val = ai_today_row.iloc[0]['yhat']
                     bias_correction = (current_real_temp - ai_today_val) * 0.8
                 
-                # --- D. LỌC KẾT QUẢ (BỎ HÔM NAY) ---
                 display_forecast = forecast.tail(8).iloc[1:] 
                 fut_min_temps = res_future['daily'].get('temperature_2m_min', [])[1:] 
 
-                # Tính accuracy
                 forecast_hist = m.predict(df)
                 mae = mean_absolute_error(df['y'], forecast_hist['yhat'])
                 avg_val = df['y'].mean()
@@ -432,11 +452,8 @@ def profile_view(request):
     h = SearchHistory.objects.filter(user=request.user)
     last_city = h.last().city.split(',')[0] if h.exists() else "Chưa có"
     
-    # --- XỬ LÝ DỮ LIỆU HIỂN THỊ (Fix lỗi không hiện) ---
-    # 1. Xử lý Email: Nếu rỗng thì hiện thông báo
     user_email = request.user.email if request.user.email else "Chưa cập nhật email"
     
-    # 2. Xử lý Ngày tham gia: Format sang ngày/tháng/năm ngay tại đây
     if request.user.date_joined:
         join_date_str = request.user.date_joined.strftime("%d/%m/%Y")
     else:
@@ -445,8 +462,8 @@ def profile_view(request):
     return render(request, 'profile.html', {
         'total_searches': h.count(), 
         'last_city': last_city,
-        'user_email': user_email,       # Biến mới: Đã xử lý
-        'user_join_date': join_date_str # Biến mới: Đã xử lý
+        'user_email': user_email,
+        'user_join_date': join_date_str
     })
 
 def login_view(request):
@@ -471,15 +488,13 @@ def register(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
 @login_required
 def edit_profile_view(request):
-    # Đảm bảo User luôn có Profile (tránh lỗi nếu user cũ chưa có)
     profile, created = UserProfile.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
-        # Form sửa thông tin (Họ tên, email)
         u_form = ProfileUpdateForm(request.POST, instance=request.user)
-        # Form sửa ảnh (Avatar)
         p_form = ProfilePicForm(request.POST, request.FILES, instance=profile)
 
         if u_form.is_valid() and p_form.is_valid():
@@ -497,14 +512,12 @@ def edit_profile_view(request):
     }
     return render(request, 'edit_profile.html', context)
 
-# 2. Hàm Đổi Mật Khẩu
 @login_required
 def change_password_view(request):
     if request.method == 'POST':
         form = PasswordChangeForm(request.user, request.POST)
         if form.is_valid():
             user = form.save()
-            # Quan trọng: Cập nhật session để không bị đăng xuất
             update_session_auth_hash(request, user) 
             messages.success(request, 'Đổi mật khẩu thành công!')
             return redirect('profile')
