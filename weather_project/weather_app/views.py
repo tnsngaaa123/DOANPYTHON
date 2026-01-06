@@ -579,16 +579,20 @@ def get_wiki_info(city_name, lat, lon):
 # =========================================================
 @login_required(login_url='login')
 def detail_view(request):
-    # Lấy tham số từ URL
-    lat = request.GET.get('lat')
-    lon = request.GET.get('lon')
+    # 1. Lấy tham số từ URL
+    raw_lat = request.GET.get('lat')
+    raw_lon = request.GET.get('lon')
     city = request.GET.get('city', 'Địa điểm')
-    date_str = request.GET.get('date') # YYYY-MM-DD
-    
-    if not lat or not lon:
+    date_str = request.GET.get('date') 
+
+    if not raw_lat or not raw_lon:
         return redirect('home')
 
-    # Xử lý ngày (Mặc định là hôm nay nếu thiếu)
+    # --- SỬA LỖI QUAN TRỌNG: Thay dấu phẩy thành dấu chấm ---
+    lat = raw_lat.replace(',', '.')
+    lon = raw_lon.replace(',', '.')
+
+    # Xử lý ngày
     if not date_str:
         target_date = date.today()
         date_str = target_date.strftime('%Y-%m-%d')
@@ -602,66 +606,63 @@ def detail_view(request):
             date_str = target_date.strftime('%Y-%m-%d')
             is_history = False
 
-    # 1. Lấy thông tin Wikipedia
+    # 2. Lấy Wiki (Gọi hàm cũ)
     wiki_data = get_wiki_info(city, lat, lon)
 
-    # 2. Gọi API Thời tiết (FULL OPTION)
+    # 3. Gọi API Thời tiết
     variables = [
         "temperature_2m", "relative_humidity_2m", "apparent_temperature",
         "rain", "weather_code", "pressure_msl", "cloud_cover", 
         "wind_speed_10m", "uv_index", "soil_moisture_0_to_1cm"
     ]
-    
     hourly_vars = ",".join(variables)
     
-    try:
-        if is_history:
-            # API Lịch sử (Archive)
-            url = (f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}"
-                   f"&start_date={date_str}&end_date={date_str}"
-                   f"&hourly={hourly_vars}&timezone=auto")
-        else:
-            # API Dự báo (Forecast)
-            url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
-                   f"&start_date={date_str}&end_date={date_str}"
-                   f"&hourly={hourly_vars}&timezone=auto")
+    # URL API
+    base_url = "https://archive-api.open-meteo.com/v1/archive" if is_history else "https://api.open-meteo.com/v1/forecast"
+    url = (f"{base_url}?latitude={lat}&longitude={lon}"
+           f"&start_date={date_str}&end_date={date_str}"
+           f"&hourly={hourly_vars}&timezone=auto")
 
-        res = requests.get(url, timeout=10).json()
+    hourly_data = []
+    try:
+        # verify=False giúp tránh lỗi SSL trên một số máy Windows
+        res = requests.get(url, timeout=10, verify=False).json()
         
-        hourly_data = []
         if 'hourly' in res:
             h = res['hourly']
-            # Chuyển đổi dữ liệu từ dạng cột sang dạng hàng
+            # Duyệt qua tất cả dữ liệu trả về (Không cần check ngày nữa vì API đã lọc rồi)
             for i in range(len(h['time'])):
-                # Lọc đúng ngày (phòng trường hợp API trả về múi giờ khác làm lệch ngày)
-                time_val = h['time'][i] # "2026-01-06T15:00"
-                if date_str in time_val:
-                    code = h['weather_code'][i]
-                    
-                    # Tạo object cho từng giờ
-                    hour_info = {
-                        'time': time_val.split('T')[1], # 15:00
-                        'temp': h['temperature_2m'][i],
-                        'humidity': h['relative_humidity_2m'][i],
-                        'feels_like': h['apparent_temperature'][i],
-                        'rain': h['rain'][i],
-                        'wind': h['wind_speed_10m'][i],
-                        'cloud': h.get('cloud_cover', [0]*24)[i],
-                        'uv': h.get('uv_index', [0]*24)[i] if h.get('uv_index') else 0,
-                        'soil': h.get('soil_moisture_0_to_1cm', [0]*24)[i] if h.get('soil_moisture_0_to_1cm') else 0,
-                        'desc': WMO_CODES.get(code, "Không xác định"), # Dùng WMO_CODES để dịch
-                        'code': code
-                    }
-                    hourly_data.append(hour_info)
+                time_val = h['time'][i] # Dạng "2026-01-06T15:00"
+                
+                # Lấy code thời tiết
+                code = h['weather_code'][i]
+                if code is None: code = 0 # Phòng hờ null
+
+                hour_info = {
+                    'time': time_val.split('T')[1] if 'T' in time_val else time_val,
+                    'temp': h['temperature_2m'][i],
+                    'humidity': h['relative_humidity_2m'][i],
+                    'feels_like': h['apparent_temperature'][i],
+                    'rain': h['rain'][i],
+                    'wind': h['wind_speed_10m'][i],
+                    'cloud': h.get('cloud_cover', [0]*24)[i],
+                    'uv': h.get('uv_index', [0]*24)[i] if h.get('uv_index') else 0,
+                    'soil': h.get('soil_moisture_0_to_1cm', [0]*24)[i] if h.get('soil_moisture_0_to_1cm') else 0,
+                    'desc': WMO_CODES.get(code, "Có mây"), 
+                    'code': code
+                }
+                hourly_data.append(hour_info)
+        else:
+            print("API trả về nhưng không có mục 'hourly'. Response:", res)
 
     except Exception as e:
         print(f"Detail API Error: {e}")
-        hourly_data = []
+        # Không làm gì cả, hourly_data sẽ rỗng và HTML hiện thông báo lỗi
 
     context = {
-        'city_name': city, # Đổi key thành city_name cho khớp với template
-        'selected_date': target_date, # Đổi key thành selected_date cho khớp template cũ
-        'description': wiki_data['summary'], # Lấy summary từ kết quả wiki
+        'city_name': city,
+        'selected_date': target_date,
+        'description': wiki_data['summary'],
         'wiki_url': wiki_data['url'],
         'hourly_data': hourly_data,
         'lat': lat,

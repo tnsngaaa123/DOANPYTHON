@@ -9,18 +9,26 @@
                 <div class="card-body p-5">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h1 class="fw-bold text-warning mb-0">{{ city }}</h1>
-                        <a href="{% url 'home' %}" class="btn btn-outline-light rounded-pill"><i class="fa-solid fa-arrow-left me-2"></i>Quay lại</a>
+                        <a href="{% url 'home' %}" class="btn btn-outline-light rounded-pill">
+                            <i class="fa-solid fa-arrow-left me-2"></i>Quay lại
+                        </a>
                     </div>
-                    <h4 class="text-info mb-4"><i class="fa-regular fa-calendar me-2"></i>Dữ liệu ngày: {{ date|date:"d/m/Y" }}</h4>
+
+                    <h4 class="text-info mb-4">
+                        <i class="fa-regular fa-calendar me-2"></i>Dữ liệu ngày: {{ date|date:"d/m/Y" }}
+                    </h4>
                     
                     <hr class="border-secondary">
                     
                     <div class="wiki-section mt-4">
-                        <h5 class="text-success fw-bold"><i class="fa-solid fa-book-open me-2"></i>Giới thiệu địa danh:</h5>
+                        <h5 class="text-success fw-bold">
+                            <i class="fa-solid fa-book-open me-2"></i>Giới thiệu địa danh:
+                        </h5>
                         <p class="lead text-light" style="line-height: 1.8; text-align: justify;">
-                            {{ wiki.summary }}
+                            {{ wiki.summary|default:"Đang cập nhật thông tin giới thiệu cho địa điểm này..." }}
                         </p>
-                        {% if wiki.url %}
+                        
+                        {% if wiki.url and wiki.url != '#' %}
                         <a href="{{ wiki.url }}" target="_blank" class="text-info text-decoration-none small">
                             <i class="fa-solid fa-up-right-from-square"></i> Đọc thêm trên Wikipedia
                         </a>
@@ -53,12 +61,17 @@
                         {% for h in hourly_data %}
                         <tr>
                             <td class="fw-bold text-warning">{{ h.time }}</td>
+                            
                             <td>
-                                <span class="badge bg-secondary">{{ h.description }}</span>
+                                <span class="badge bg-secondary border border-light">{{ h.description }}</span>
                             </td>
+                            
                             <td class="fw-bold fs-5">{{ h.temp }}°C</td>
+                            
                             <td class="text-white-50">{{ h.feels_like }}°C</td>
+                            
                             <td class="text-info fw-bold">{{ h.humidity }}%</td>
+                            
                             <td>
                                 {% if h.rain > 0 %}
                                     <span class="text-info fw-bold">{{ h.rain }} mm</span>
@@ -66,15 +79,25 @@
                                     <span class="text-white-50">-</span>
                                 {% endif %}
                             </td>
+                            
                             <td>{{ h.wind }} km/h</td>
+                            
                             <td>
                                 {% if h.uv > 10 %}<span class="badge bg-danger">Nguy hiểm</span>
                                 {% elif h.uv > 7 %}<span class="badge bg-warning text-dark">Cao</span>
-                                {% elif h.uv > 2 %}<span class="badge bg-warning bg-opacity-50">Trung bình</span>
+                                {% elif h.uv > 2 %}<span class="badge bg-warning bg-opacity-50 text-white">Trung bình</span>
                                 {% else %}<span class="badge bg-success">Thấp</span>{% endif %}
-                                <br><small>{{ h.uv }}</small>
+                                <br><small class="text-white-50">{{ h.uv }}</small>
                             </td>
+                            
                             <td class="text-success">{{ h.soil_moisture }} m³/m³</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="fa-solid fa-triangle-exclamation text-warning fs-1 mb-3"></i>
+                                <p class="fs-5 text-white">Không tìm thấy dữ liệu thời tiết cho ngày này.</p>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
