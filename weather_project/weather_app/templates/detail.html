@@ -76,17 +76,22 @@
                                 {% if h.rain > 0 %}
                                     <span class="text-info fw-bold">{{ h.rain }} mm</span>
                                 {% else %}
-                                    <span class="text-white-50">-</span>
+                                    <span class="text-white-50 small">0 mm</span>
                                 {% endif %}
                             </td>
                             
                             <td>{{ h.wind }} km/h</td>
                             
                             <td>
-                                {% if h.uv > 10 %}<span class="badge bg-danger">Nguy hiểm</span>
-                                {% elif h.uv > 7 %}<span class="badge bg-warning text-dark">Cao</span>
-                                {% elif h.uv > 2 %}<span class="badge bg-warning bg-opacity-50 text-white">Trung bình</span>
-                                {% else %}<span class="badge bg-success">Thấp</span>{% endif %}
+                                {% if h.uv > 10 %}
+                                    <span class="badge bg-danger">Nguy hiểm</span>
+                                {% elif h.uv > 7 %}
+                                    <span class="badge bg-warning text-dark">Cao</span>
+                                {% elif h.uv > 2 %}
+                                    <span class="badge bg-warning bg-opacity-50 text-white">Trung bình</span>
+                                {% else %}
+                                    <span class="badge bg-success">Thấp</span>
+                                {% endif %}
                                 <br><small class="text-white-50">{{ h.uv }}</small>
                             </td>
                             
