@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    
+    <div class="row mb-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="card bg-dark text-white shadow-lg border border-secondary" style="backdrop-filter: blur(10px); background: rgba(15, 23, 42, 0.8);">
+                <div class="card-body p-5">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h1 class="fw-bold text-warning mb-0">{{ city }}</h1>
+                        <a href="{% url 'home' %}" class="btn btn-outline-light rounded-pill"><i class="fa-solid fa-arrow-left me-2"></i>Quay lại</a>
+                    </div>
+                    <h4 class="text-info mb-4"><i class="fa-regular fa-calendar me-2"></i>Dữ liệu ngày: {{ date|date:"d/m/Y" }}</h4>
+                    
+                    <hr class="border-secondary">
+                    
+                    <div class="wiki-section mt-4">
+                        <h5 class="text-success fw-bold"><i class="fa-solid fa-book-open me-2"></i>Giới thiệu địa danh:</h5>
+                        <p class="lead text-light" style="line-height: 1.8; text-align: justify;">
+                            {{ wiki.summary }}
+                        </p>
+                        {% if wiki.url %}
+                        <a href="{{ wiki.url }}" target="_blank" class="text-info text-decoration-none small">
+                            <i class="fa-solid fa-up-right-from-square"></i> Đọc thêm trên Wikipedia
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <h3 class="text-white fw-bold mb-3 ms-2">📊 Chi tiết từng giờ</h3>
+            <div class="table-responsive rounded-4 shadow-lg">
+                <table class="table table-dark table-hover table-bordered mb-0 text-center align-middle" style="background: rgba(15, 23, 42, 0.9);">
+                    <thead class="bg-primary text-white">
+                        <tr>
+                            <th class="py-3">Giờ</th>
+                            <th>Thời tiết</th>
+                            <th>Nhiệt độ</th>
+                            <th>Cảm giác</th>
+                            <th>Độ ẩm</th>
+                            <th>Mưa</th>
+                            <th>Gió</th>
+                            <th>UV</th>
+                            <th>Đất ẩm</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in hourly_data %}
+                        <tr>
+                            <td class="fw-bold text-warning">{{ h.time }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ h.description }}</span>
+                            </td>
+                            <td class="fw-bold fs-5">{{ h.temp }}°C</td>
+                            <td class="text-white-50">{{ h.feels_like }}°C</td>
+                            <td class="text-info fw-bold">{{ h.humidity }}%</td>
+                            <td>
+                                {% if h.rain > 0 %}
+                                    <span class="text-info fw-bold">{{ h.rain }} mm</span>
+                                {% else %}
+                                    <span class="text-white-50">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ h.wind }} km/h</td>
+                            <td>
+                                {% if h.uv > 10 %}<span class="badge bg-danger">Nguy hiểm</span>
+                                {% elif h.uv > 7 %}<span class="badge bg-warning text-dark">Cao</span>
+                                {% elif h.uv > 2 %}<span class="badge bg-warning bg-opacity-50">Trung bình</span>
+                                {% else %}<span class="badge bg-success">Thấp</span>{% endif %}
+                                <br><small>{{ h.uv }}</small>
+                            </td>
+                            <td class="text-success">{{ h.soil_moisture }} m³/m³</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

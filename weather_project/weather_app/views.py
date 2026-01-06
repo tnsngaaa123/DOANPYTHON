@@ -1,4 +1,5 @@
 from prophet import Prophet
+from urllib.parse import quote
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 
@@ -25,7 +26,7 @@ from sklearn.linear_model import LinearRegression
 import requests
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, date
 import json
 import urllib3
 
@@ -49,7 +50,7 @@ WMO_CODES = {
 }
 
 # =========================================================
-# 1. CÁC HÀM HỖ TRỢ (CORE LOGIC) - GIỮ NGUYÊN
+# 1. CÁC HÀM HỖ TRỢ (CORE LOGIC)
 # =========================================================
 
 def get_city_name_from_coords(lat, lon):
@@ -112,7 +113,7 @@ def get_location_data(query):
     return results
 
 # =========================================================
-# 2. VIEW CHÍNH (HOME) - ĐÃ CẬP NHẬT TÍNH NĂNG CHỌN NGÀY
+# 2. VIEW CHÍNH (HOME) - ĐÃ SỬA LỖI LƯU LỊCH SỬ
 # =========================================================
 
 @login_required(login_url='login')
@@ -129,25 +130,23 @@ def home_view(request):
     lat_req = request.GET.get('lat')
     lon_req = request.GET.get('lon')
     
-    # --- MỚI: LẤY NGÀY ĐƯỢC CHỌN ---
+    # --- LẤY NGÀY ĐƯỢC CHỌN ---
     date_req = request.POST.get('date') or request.GET.get('date')
     is_historical = False
     display_date = datetime.now()
 
-    # Kiểm tra xem có phải ngày quá khứ không
     if date_req:
         try:
             req_date_obj = datetime.strptime(date_req, '%Y-%m-%d').date()
             display_date = req_date_obj
-            # Nếu ngày chọn nhỏ hơn ngày hiện tại -> Là lịch sử
             if req_date_obj < datetime.now().date():
                 is_historical = True
         except:
-            pass # Nếu lỗi định dạng ngày thì cứ để mặc định là hôm nay
+            pass
 
-    should_save = False
+    should_save = False # Cờ đánh dấu xem có phải là tìm kiếm chủ động không
 
-    # --- LOGIC SESSION & ĐỊNH VỊ (GIỮ NGUYÊN) ---
+    # --- LOGIC SESSION ---
     if lat_req and lon_req:
         request.session['home_city_coords'] = f"{lat_req},{lon_req}"
         if 'home_city_name' in request.session: del request.session['home_city_name']
@@ -166,7 +165,7 @@ def home_view(request):
                     city_req = last.city
                     request.session['home_city_name'] = city_req
 
-    # TH1: Có tọa độ
+    # Xử lý tọa độ/tên để lấy final_lat, final_lon
     if lat_req and lon_req:
         try:
             final_lat, final_lon = float(lat_req), float(lon_req)
@@ -175,28 +174,24 @@ def home_view(request):
                 display_name = city_req
             else:
                 display_name = get_city_name_from_coords(final_lat, final_lon)
-            should_save = True
+            should_save = True # Đánh dấu là tìm kiếm thành công
         except: error_msg = "Tọa độ lỗi"
 
-    # TH2: Có tên
     elif city_req:
         locs = get_location_data(city_req)
         if locs:
             final_lat, final_lon = locs[0]['lat'], locs[0]['lon']
             display_name = locs[0]['name']
-            should_save = True
+            should_save = True # Đánh dấu là tìm kiếm thành công
         else:
             error_msg = f"Không tìm thấy: {city_req}"
             display_name = city_req
 
-    # --- GỌI API THỜI TIẾT (ĐÃ SỬA ĐỂ HỖ TRỢ LỊCH SỬ) ---
+    # --- GỌI API THỜI TIẾT ---
     if not error_msg:
         try:
             if is_historical:
-                # ==========================================
-                # TRƯỜNG HỢP 1: XEM LỊCH SỬ (QUÁ KHỨ)
-                # ==========================================
-                # API lịch sử trả về dữ liệu theo giờ. Ta sẽ lấy giờ thứ 12 (12:00 trưa) để hiển thị.
+                # XEM LỊCH SỬ (QUÁ KHỨ)
                 url = (f"https://archive-api.open-meteo.com/v1/archive?latitude={final_lat}&longitude={final_lon}"
                        f"&start_date={date_req}&end_date={date_req}"
                        f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,rain,weather_code,cloud_cover,wind_speed_10m,pressure_msl"
@@ -207,9 +202,7 @@ def home_view(request):
                 if 'hourly' in res:
                     hourly = res['hourly']
                     daily = res.get('daily', {})
-                    
-                    # Lấy index 12 (tức là 12:00 trưa) để làm đại diện
-                    idx = 12 
+                    idx = 12 # 12:00 trưa
                     
                     w_code = hourly['weather_code'][idx] if hourly['weather_code'][idx] is not None else 0
                     desc = WMO_CODES.get(w_code, "Không có dữ liệu")
@@ -221,17 +214,15 @@ def home_view(request):
                         'feels_like': round(hourly['apparent_temperature'][idx]),
                         'rain': hourly['rain'][idx],
                         'pressure': hourly['pressure_msl'][idx],
-                        'visibility': 10.0, # Lịch sử không có visibility, set mặc định 10km
+                        'visibility': 10.0,
                         'description': desc,
                         'cloud_cover': hourly['cloud_cover'][idx],
-                        'uv_index': 0, # Lịch sử basic không có UV
+                        'uv_index': 0,
                         'min_temp': round(daily['temperature_2m_min'][0]) if 'temperature_2m_min' in daily else 0,
                         'max_temp': round(daily['temperature_2m_max'][0]) if 'temperature_2m_max' in daily else 0,
                     }
             else:
-                # ==========================================
-                # TRƯỜNG HỢP 2: XEM HÔM NAY / TƯƠNG LAI (CODE CŨ)
-                # ==========================================
+                # XEM HIỆN TẠI / TƯƠNG LAI
                 url = f"https://api.open-meteo.com/v1/forecast?latitude={final_lat}&longitude={final_lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,cloud_cover,wind_speed_10m,pressure_msl,visibility&daily=uv_index_max,temperature_2m_max,temperature_2m_min&timezone=auto"
                 
                 res = requests.get(url, timeout=8, verify=False).json()
@@ -239,16 +230,11 @@ def home_view(request):
                 if 'current' in res:
                     curr = res['current']
                     daily = res.get('daily', {})
-                    
                     w_code = curr.get('weather_code', 0)
                     desc = WMO_CODES.get(w_code, "Có mây")
-                    
                     vis_val = curr.get('visibility')
                     vis_km = round(vis_val / 1000, 1) if vis_val is not None else 10.0
-                    
-                    uv_val = 0
-                    if 'uv_index_max' in daily and len(daily['uv_index_max']) > 0:
-                        uv_val = daily['uv_index_max'][0]
+                    uv_val = daily['uv_index_max'][0] if 'uv_index_max' in daily and len(daily['uv_index_max']) > 0 else 0
 
                     weather_data = {
                         'temp': round(curr['temperature_2m']),
@@ -265,10 +251,13 @@ def home_view(request):
                         'max_temp': round(daily['temperature_2m_max'][0]) if 'temperature_2m_max' in daily else 0,
                     }
 
-            # Chỉ lưu lịch sử khi người dùng CHỦ ĐỘNG tìm kiếm
-            if (request.GET.get('city') or request.GET.get('lat')) and not is_historical:
+            # --- SỬA LỖI LƯU LỊCH SỬ TẠI ĐÂY ---
+            # Logic: Nếu có tìm kiếm (should_save=True) và không phải xem lịch sử (not is_historical)
+            if should_save and not is_historical:
                 if request.user.is_authenticated and weather_data:
+                    # Xóa bản ghi cũ trùng tên để cập nhật mới nhất lên đầu
                     SearchHistory.objects.filter(user=request.user, city=display_name).delete()
+                    
                     SearchHistory.objects.create(
                         user=request.user, city=display_name,
                         temp=weather_data['temp'], humidity=weather_data['humidity'],
@@ -290,12 +279,12 @@ def home_view(request):
         'map_lat': final_lat,
         'map_lon': final_lon,
         'error': error_msg,
-        'today': display_date # Truyền ngày đang xem (hôm nay hoặc quá khứ) ra view
+        'today': display_date
     }
     return render(request, 'home.html', context)
 
 # =========================================================
-# 3. CÁC VIEW KHÁC (GIỮ NGUYÊN)
+# 3. CÁC VIEW KHÁC
 # =========================================================
 
 def city_suggest(request):
@@ -527,3 +516,156 @@ def change_password_view(request):
         form = PasswordChangeForm(request.user)
         
     return render(request, 'change_password.html', {'form': form})
+# --- BẢNG MÃ WMO (Dịch mã thời tiết sang tiếng Việt) ---
+WMO_CODES = {
+    0: "Trời quang đãng",
+    1: "Chủ yếu là trời trong", 2: "Có mây một phần", 3: "Nhiều mây",
+    45: "Sương mù", 48: "Sương mù rime",
+    51: "Mưa phùn nhẹ", 53: "Mưa phùn vừa", 55: "Mưa phùn dày đặc",
+    56: "Mưa phùn băng giá nhẹ", 57: "Mưa phùn băng giá dày",
+    61: "Mưa nhỏ", 63: "Mưa vừa", 65: "Mưa to",
+    66: "Mưa băng giá nhẹ", 67: "Mưa băng giá nặng",
+    71: "Tuyết rơi nhẹ", 73: "Tuyết rơi vừa", 75: "Tuyết rơi nặng",
+    77: "Hạt tuyết",
+    80: "Mưa rào nhẹ", 81: "Mưa rào vừa", 82: "Mưa rào rất to",
+    85: "Tuyết rào nhẹ", 86: "Tuyết rào nặng",
+    95: "Dông nhẹ hoặc vừa",
+    96: "Dông kèm mưa đá nhẹ", 99: "Dông kèm mưa đá nặng"
+}
+
+# =========================================================
+# HÀM 1: LẤY THÔNG TIN WIKI (NÂNG CẤP)
+# =========================================================
+def get_wiki_info(city_name, lat, lon):
+    """
+    Lấy đoạn giới thiệu ngắn từ Wikipedia tiếng Việt.
+    Ưu tiên tìm theo tên thành phố, nếu không thấy thì tìm theo tọa độ.
+    """
+    summary = "Không tìm thấy thông tin mô tả cho địa điểm này."
+    wiki_url = "#"
+    
+    try:
+        # Cách 1: Tìm theo tên địa điểm (Chuẩn hóa tên)
+        clean_name = city_name.split(',')[0].strip()
+        
+        api_url = f"https://vi.wikipedia.org/api/rest_v1/page/summary/{quote(clean_name)}"
+        res = requests.get(api_url, timeout=5).json()
+        
+        if 'extract' in res:
+            summary = res['extract']
+            wiki_url = res.get('content_urls', {}).get('desktop', {}).get('page', '#')
+        else:
+            # Cách 2: Nếu không ra tên, dùng GeoSearch tìm bài viết gần tọa độ nhất
+            geo_url = f"https://vi.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord={lat}|{lon}&gsradius=10000&gslimit=1&format=json"
+            geo_res = requests.get(geo_url, timeout=5).json()
+            
+            pages = geo_res.get('query', {}).get('geosearch', [])
+            if pages:
+                page_title = pages[0]['title']
+                # Gọi lại API summary với title tìm được
+                api_url_2 = f"https://vi.wikipedia.org/api/rest_v1/page/summary/{quote(page_title)}"
+                res_2 = requests.get(api_url_2, timeout=5).json()
+                if 'extract' in res_2:
+                    summary = res_2['extract']
+                    wiki_url = res_2.get('content_urls', {}).get('desktop', {}).get('page', '#')
+
+    except Exception as e:
+        print(f"Wiki Error: {e}")
+
+    return {'summary': summary, 'url': wiki_url}
+
+# =========================================================
+# HÀM 2: VIEW CHI TIẾT (FULL DATA + WIKI)
+# =========================================================
+@login_required(login_url='login')
+def detail_view(request):
+    # Lấy tham số từ URL
+    lat = request.GET.get('lat')
+    lon = request.GET.get('lon')
+    city = request.GET.get('city', 'Địa điểm')
+    date_str = request.GET.get('date') # YYYY-MM-DD
+    
+    if not lat or not lon:
+        return redirect('home')
+
+    # Xử lý ngày (Mặc định là hôm nay nếu thiếu)
+    if not date_str:
+        target_date = date.today()
+        date_str = target_date.strftime('%Y-%m-%d')
+        is_history = False
+    else:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            is_history = target_date < date.today()
+        except ValueError:
+            target_date = date.today()
+            date_str = target_date.strftime('%Y-%m-%d')
+            is_history = False
+
+    # 1. Lấy thông tin Wikipedia
+    wiki_data = get_wiki_info(city, lat, lon)
+
+    # 2. Gọi API Thời tiết (FULL OPTION)
+    variables = [
+        "temperature_2m", "relative_humidity_2m", "apparent_temperature",
+        "rain", "weather_code", "pressure_msl", "cloud_cover", 
+        "wind_speed_10m", "uv_index", "soil_moisture_0_to_1cm"
+    ]
+    
+    hourly_vars = ",".join(variables)
+    
+    try:
+        if is_history:
+            # API Lịch sử (Archive)
+            url = (f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}"
+                   f"&start_date={date_str}&end_date={date_str}"
+                   f"&hourly={hourly_vars}&timezone=auto")
+        else:
+            # API Dự báo (Forecast)
+            url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+                   f"&start_date={date_str}&end_date={date_str}"
+                   f"&hourly={hourly_vars}&timezone=auto")
+
+        res = requests.get(url, timeout=10).json()
+        
+        hourly_data = []
+        if 'hourly' in res:
+            h = res['hourly']
+            # Chuyển đổi dữ liệu từ dạng cột sang dạng hàng
+            for i in range(len(h['time'])):
+                # Lọc đúng ngày (phòng trường hợp API trả về múi giờ khác làm lệch ngày)
+                time_val = h['time'][i] # "2026-01-06T15:00"
+                if date_str in time_val:
+                    code = h['weather_code'][i]
+                    
+                    # Tạo object cho từng giờ
+                    hour_info = {
+                        'time': time_val.split('T')[1], # 15:00
+                        'temp': h['temperature_2m'][i],
+                        'humidity': h['relative_humidity_2m'][i],
+                        'feels_like': h['apparent_temperature'][i],
+                        'rain': h['rain'][i],
+                        'wind': h['wind_speed_10m'][i],
+                        'cloud': h.get('cloud_cover', [0]*24)[i],
+                        'uv': h.get('uv_index', [0]*24)[i] if h.get('uv_index') else 0,
+                        'soil': h.get('soil_moisture_0_to_1cm', [0]*24)[i] if h.get('soil_moisture_0_to_1cm') else 0,
+                        'desc': WMO_CODES.get(code, "Không xác định"), # Dùng WMO_CODES để dịch
+                        'code': code
+                    }
+                    hourly_data.append(hour_info)
+
+    except Exception as e:
+        print(f"Detail API Error: {e}")
+        hourly_data = []
+
+    context = {
+        'city_name': city, # Đổi key thành city_name cho khớp với template
+        'selected_date': target_date, # Đổi key thành selected_date cho khớp template cũ
+        'description': wiki_data['summary'], # Lấy summary từ kết quả wiki
+        'wiki_url': wiki_data['url'],
+        'hourly_data': hourly_data,
+        'lat': lat,
+        'lon': lon
+    }
+    
+    return render(request, 'detail.html', context)

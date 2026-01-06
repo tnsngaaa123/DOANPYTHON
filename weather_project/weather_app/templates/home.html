@@ -58,12 +58,12 @@
         outline: none;
         cursor: pointer;
         transition: all 0.3s;
-        min-width: 50px;
+        min-width: 50px; /* Mobile */
     }
 
     @media (min-width: 768px) {
         .date-picker-glass {
-            min-width: 160px;
+            min-width: 160px; /* PC */
         }
     }
 
@@ -458,6 +458,15 @@
             </div>
         </div>
     </div>
+
+    <div class="mt-4 text-center">
+        <a href="{% url 'detail' %}?lat={{ map_lat }}&lon={{ map_lon }}&city={{ full_city_name }}&date={{ today|date:'Y-m-d' }}" 
+           class="btn btn-outline-info w-100 rounded-pill fw-bold py-2 shadow-sm"
+           style="backdrop-filter: blur(5px);">
+            <i class="fa-solid fa-circle-info me-2"></i> Xem chi tiết
+        </a>
+    </div>
+
 </div>
 {% endif %}
 
