@@ -1,24 +1,19 @@
 from django.urls import path
 from . import views
-# 1. QUAN TRỌNG: Import thư viện auth_views để xử lý quên mật khẩu
 from django.contrib.auth import views as auth_views 
 
 urlpatterns = [
-    # --- Các trang chính ---
     path('', views.home_view, name='home'),             
     path('history/', views.history_view, name='history'), 
     path('prediction/', views.prediction_view, name='prediction'), 
     path('profile/', views.profile_view, name='profile'),
     
-    # --- Xác thực (Đăng nhập/Đăng ký/Đăng xuất) ---
     path('login/', views.login_view, name='login'),
     path('register/', views.register, name='register'),
     path('logout/', views.logout_view, name='logout'),
     
-    # --- Chức năng khác ---
     path('suggest/', views.city_suggest, name='city_suggest'),
 
-    # --- QUÊN MẬT KHẨU (Thêm 4 dòng này thì login.html mới chạy được) ---
     path('password_reset/', 
          auth_views.PasswordResetView.as_view(template_name='registration/password_reset_form.html'), 
          name='password_reset'),

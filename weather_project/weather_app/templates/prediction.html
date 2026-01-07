@@ -168,12 +168,10 @@
             document.addEventListener("DOMContentLoaded", function () {
                 const ctx = document.getElementById('weatherChart').getContext('2d');
 
-                // Lấy dữ liệu từ Backend (Json được render từ views.py)
                 const rawData = JSON.parse('{{ chart_data|escapejs }}');
 
-                // Tạo màu Gradient cho đường trung bình
                 let gradientAvg = ctx.createLinearGradient(0, 0, 0, 400);
-                gradientAvg.addColorStop(0, 'rgba(0, 97, 242, 0.5)'); // Xanh Royal đậm
+                gradientAvg.addColorStop(0, 'rgba(0, 97, 242, 0.5)');
                 gradientAvg.addColorStop(1, 'rgba(0, 97, 242, 0.0)');
 
                 new Chart(ctx, {

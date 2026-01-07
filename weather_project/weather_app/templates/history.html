@@ -208,12 +208,10 @@
 </div>
 
 <script>
-    // --- KHỞI TẠO ---
     const listItems = document.querySelectorAll('.history-item');
     const noResult = document.getElementById('no-result');
     const badge = document.getElementById('count-badge');
 
-    // Tạo danh sách năm động (Từ năm nay lùi về 5 năm trước)
     const currentYear = new Date().getFullYear();
     const yearSelect = document.getElementById('inputYear');
     for (let i = 0; i < 5; i++) {
@@ -224,14 +222,11 @@
         yearSelect.appendChild(opt);
     }
 
-    // --- HÀM CHUYỂN ĐỔI CHẾ ĐỘ (NGÀY/THÁNG/NĂM) ---
     function switchMode() {
         const mode = document.getElementById('filterMode').value;
 
-        // 1. Ẩn tất cả input
         document.querySelectorAll('.filter-input').forEach(el => el.classList.add('d-none-custom'));
 
-        // 2. Hiện input tương ứng và reset giá trị cũ
         if (mode === 'date') {
             const el = document.getElementById('inputDate');
             el.classList.remove('d-none-custom');
@@ -243,41 +238,34 @@
         } else if (mode === 'year') {
             const el = document.getElementById('inputYear');
             el.classList.remove('d-none-custom');
-            el.value = ''; // Reset về default
+            el.value = '';
         }
 
-        // 3. Reset danh sách về hiển thị tất cả
         resetListOnly();
     }
 
-    // --- HÀM LỌC CHÍNH (GẮN VÀO SỰ KIỆN CHANGE CỦA INPUT) ---
     document.querySelectorAll('.filter-input').forEach(input => {
         input.addEventListener('change', function () {
-            const val = this.value; // Giá trị user chọn
-            if (!val) return;       // Nếu chưa chọn gì thì thôi
+            const val = this.value;
+            if (!val) return;
 
             const mode = document.getElementById('filterMode').value;
             let visibleCount = 0;
 
             listItems.forEach(item => {
-                // data-date format: YYYY-MM-DD
                 const itemDate = item.getAttribute('data-date');
                 let isMatch = false;
 
                 if (mode === 'date') {
-                    // So khớp chính xác cả chuỗi YYYY-MM-DD
                     isMatch = (itemDate === val);
                 }
                 else if (mode === 'month') {
-                    // Input month trả về YYYY-MM -> Kiểm tra startsWith
                     isMatch = itemDate.startsWith(val);
                 }
                 else if (mode === 'year') {
-                    // Input year trả về YYYY -> Kiểm tra startsWith
                     isMatch = itemDate.startsWith(val);
                 }
 
-                // Ẩn/Hiện item
                 if (isMatch) {
                     item.classList.remove('d-none-custom');
                     item.classList.add('d-flex');
@@ -288,12 +276,10 @@
                 }
             });
 
-            // Cập nhật UI
             updateUI(visibleCount);
         });
     });
 
-    // --- CÁC HÀM TIỆN ÍCH ---
     function resetAll() {
         document.getElementById('inputDate').value = '';
         document.getElementById('inputMonth').value = '';
@@ -311,7 +297,6 @@
 
     function updateUI(count) {
         badge.innerText = count;
-        // Kiểm tra xem danh sách gốc có trống không
         const isListEmpty = document.querySelector('#history-list .text-center.py-5');
 
         if (!isListEmpty) {

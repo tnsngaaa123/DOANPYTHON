@@ -7,7 +7,6 @@ class SearchHistory(models.Model):
     city = models.CharField(max_length=100)
     search_time = models.DateTimeField(default=timezone.now)
     
-    # 10 chỉ số chi tiết
     temp = models.FloatField()
     humidity = models.IntegerField()
     wind_speed = models.FloatField()

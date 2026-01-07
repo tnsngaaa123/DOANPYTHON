@@ -259,7 +259,6 @@
             const currentLocation = window.location.pathname;
             const menuItems = document.querySelectorAll('.list-group-item-action');
             menuItems.forEach(item => {
-                // Kiểm tra xem href của thẻ a có trùng với url hiện tại không
                 if (item.getAttribute('href') === currentLocation) {
                     item.classList.add('active');
                 }

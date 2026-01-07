@@ -3,43 +3,34 @@ from urllib.parse import quote
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 
-# --- NHÓM AUTH & SESSION ---
 from django.contrib.auth import login, logout, update_session_auth_hash
 
-# --- NHÓM FORMS ---
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, PasswordChangeForm
 
-# --- NHÓM FORMS CỦA BẠN ---
 from .forms import RegisterForm, ProfileUpdateForm, ProfilePicForm
 
-# --- NHÓM MODEL ---
 from .models import SearchHistory
 from .models import UserProfile
 
-# --- NHÓM TIỆN ÍCH ---
 from django.contrib import messages 
 from django.http import JsonResponse
 
-# --- NHÓM XỬ LÝ DỮ LIỆU & AI ---
 from sklearn.metrics import mean_absolute_error
 from sklearn.linear_model import LinearRegression
 import requests
 import pandas as pd
 import numpy as np
-from datetime import datetime, date, timedelta # Đã thêm timedelta
+from datetime import datetime, date, timedelta
 import json
 import urllib3
 
-# --- CẤU HÌNH ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Header giả lập trình duyệt xịn để không bị API chặn
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://www.google.com/'
 }
 
-# --- HÀM TRỢ GIÚP: CHỌN ICON ĐỘNG (Cho Detail View) ---
 def get_icon_name(code, is_day):
     """
     Trả về tên icon dựa trên mã thời tiết và trạng thái ngày/đêm.
@@ -53,11 +44,11 @@ def get_icon_name(code, is_day):
     # 1: Partly Cloud (Ít mây)
     if code == 1: return f"partly-cloudy{suffix}"
     
-    # 2: Cloudy (Có mây) -> Basmilius thường dùng chung icon cloudy, hoặc cloudy-day/night
-    if code == 2: return f"partly-cloudy{suffix}" # Hoặc "cloudy" nếu muốn icon mây to hơn
+    # 2: Cloudy (Có mây)
+    if code == 2: return f"partly-cloudy{suffix}"
     
     # 3: Overcast (U ám)
-    if code == 3: return "overcast" # U ám thì ngày đêm giống nhau (mây đen)
+    if code == 3: return "overcast"
     
     # Sương mù
     if code in [45, 48]: return f"fog{suffix}"
@@ -76,7 +67,6 @@ def get_icon_name(code, is_day):
     
     return f"partly-cloudy{suffix}"
 
-# Bảng mã thời tiết chuẩn Quốc tế (WMO) dịch sang Tiếng Việt
 WMO_CODES = {
     0: "Trời quang đãng", 1: "Chủ yếu là nắng", 2: "Có mây", 3: "U ám (Nhiều mây)",
     45: "Sương mù", 48: "Sương muối",
@@ -90,10 +80,6 @@ WMO_CODES = {
     85: "Tuyết rào nhẹ", 86: "Tuyết rào nặng",
     95: "Dông bão", 96: "Dông kèm mưa đá", 99: "Dông kèm mưa đá to"
 }
-
-# =========================================================
-# 1. CÁC HÀM HỖ TRỢ (CORE LOGIC)
-# =========================================================
 
 def get_city_name_from_coords(lat, lon):
     """ Dịch ngược tọa độ ra Tên (Reverse Geocoding) """
@@ -154,9 +140,7 @@ def get_location_data(query):
 
     return results
 
-# =========================================================
-# 2. VIEW CHÍNH (HOME)
-# =========================================================
+# VIEW
 
 @login_required(login_url='login')
 def home_view(request):
@@ -184,7 +168,6 @@ def home_view(request):
 
     should_save = False 
 
-    # --- LOGIC SESSION & TỌA ĐỘ ---
     if lat_req and lon_req:
         request.session['home_city_coords'] = f"{lat_req},{lon_req}"
         if 'home_city_name' in request.session: del request.session['home_city_name']
@@ -220,13 +203,11 @@ def home_view(request):
             error_msg = f"Không tìm thấy: {city_req}"
             display_name = city_req
 
-    # --- GỌI API THỜI TIẾT ---
     if not error_msg:
         try:
             current_hour_idx = datetime.now().hour
 
             if is_historical:
-                # --- API LỊCH SỬ ---
                 url = (f"https://archive-api.open-meteo.com/v1/archive?latitude={final_lat}&longitude={final_lon}"
                        f"&start_date={date_req}&end_date={date_req}"
                        f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,pressure_msl"
@@ -257,7 +238,6 @@ def home_view(request):
                     }
 
             else:
-                # --- API HIỆN TẠI (FORECAST) ---
                 url = "https://api.open-meteo.com/v1/forecast"
                 params = {
                     'latitude': final_lat,
@@ -332,19 +312,12 @@ def home_view(request):
     }
     return render(request, 'home.html', context)
 
-# =========================================================
-# 3. CÁC VIEW KHÁC
-# =========================================================
-
 def city_suggest(request):
     q = request.GET.get('q', '').strip()
     if len(q) < 2: return JsonResponse([], safe=False)
     return JsonResponse(get_location_data(q), safe=False)
 
-# =========================================================
-# 4. VIEW DỰ BÁO (PREDICTION) - ĐÃ CÓ TIMEDELTA
-# =========================================================
-
+# 4. VIEW DỰ BÁO 
 @login_required(login_url='login')
 def prediction_view(request):
     if request.method == 'POST':
@@ -482,9 +455,7 @@ def prediction_view(request):
             
     return render(request, 'prediction.html', context)
 
-# =========================================================
 # 5. VIEW CHI TIẾT (DETAIL) - GIAO DIỆN PRO MỚI
-# =========================================================
 @login_required(login_url='login')
 def detail_view(request):
     raw_lat = request.GET.get('lat')
@@ -498,7 +469,6 @@ def detail_view(request):
     lat = raw_lat.replace(',', '.')
     lon = raw_lon.replace(',', '.')
 
-    # 1. Xử lý ngày & Logic chọn API
     if not date_str:
         target_date = date.today()
         date_str = target_date.strftime('%Y-%m-%d')
@@ -507,9 +477,6 @@ def detail_view(request):
         try:
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             
-            # --- [SỬA QUAN TRỌNG] ---
-            # Chỉ dùng Archive API nếu ngày đó cũ hơn 10 ngày so với hôm nay.
-            # Các ngày gần đây (VD: hôm qua, tuần trước) vẫn dùng Forecast API để có đủ UV/Đất.
             cutoff_date = date.today() - timedelta(days=10)
             is_history = target_date < cutoff_date
             
@@ -518,7 +485,6 @@ def detail_view(request):
             date_str = target_date.strftime('%Y-%m-%d')
             is_history = False
 
-    # 2. Cấu hình biến API
     hourly_vars_list = [
         "temperature_2m", "relative_humidity_2m", "apparent_temperature",
         "precipitation", "weather_code", "pressure_msl", "cloud_cover", 
@@ -546,7 +512,6 @@ def detail_view(request):
                 is_day = h['is_day'][i] if 'is_day' in h else 1
                 if code is None: code = 0
 
-                # Xử lý mô tả: Nếu là ban đêm, đổi "Nắng" thành "Quang đãng"
                 desc = WMO_CODES.get(code, "Có mây")
                 if is_day == 0: 
                     if code == 0: desc = "Quang đãng (Đêm)"
@@ -562,7 +527,6 @@ def detail_view(request):
                     'wind': h['wind_speed_10m'][i],
                     'cloud': h.get('cloud_cover', [0]*24)[i],
                     
-                    # Fix lỗi None data
                     'uv': h.get('uv_index', [0]*24)[i],
                     'soil_moisture': h.get('soil_moisture_0_to_1cm', [0]*24)[i],
                     

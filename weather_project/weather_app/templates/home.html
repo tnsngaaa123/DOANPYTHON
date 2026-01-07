@@ -504,13 +504,11 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
 
-        // 1. Dọn dẹp URL
         if (window.history.replaceState) {
             var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
             window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
         }
 
-        // 2. Ẩn thông báo lỗi
         const errorBox = document.querySelector('.error-alert');
         if (errorBox) {
             setTimeout(() => {
@@ -519,7 +517,6 @@
             }, 3000);
         }
 
-        // 3. Xử lý Gợi ý tìm kiếm
         const input = document.getElementById('city-input');
         const list = document.getElementById('suggestions-list');
         const latInput = document.getElementById('lat');
@@ -536,7 +533,6 @@
                     return;
                 }
 
-                // Debounce
                 clearTimeout(timeout);
                 timeout = setTimeout(() => {
                     fetch(`/suggest/?q=${encodeURIComponent(query)}`)
@@ -549,7 +545,6 @@
                                     const div = document.createElement('div');
                                     div.classList.add('suggestion-item');
 
-                                    // Hiển thị tên địa chỉ
                                     div.innerHTML = `
                                         <div style="display: flex; align-items: center; width: 100%;">
                                             <i class="fa-solid fa-location-dot text-info me-3" style="font-size: 1.1rem;"></i>
@@ -575,18 +570,15 @@
                 }, 300);
             });
 
-            // Ẩn gợi ý khi click ra ngoài
             document.addEventListener('click', function (e) {
                 if (!e.target.closest('.floating-search')) { list.style.display = 'none'; }
             });
 
-            // Hiện loading khi submit form (Enter)
             form.addEventListener('submit', function () {
                 loadingOverlay.style.display = 'flex';
             });
         }
 
-        // 4. Cấu hình ô chọn ngày (Chỉ cho chọn quá khứ đến hôm nay)
         const dateInput = document.getElementById('date-input');
         if (dateInput) {
             const today = new Date();
@@ -595,12 +587,10 @@
             const dd = String(today.getDate()).padStart(2, '0');
             const maxDate = `${yyyy}-${mm}-${dd}`;
             
-            // Set ngày tối đa là hôm nay
             dateInput.max = maxDate;
         }
     });
 
-    // 5. Xử lý nút GPS
     function getLocation() {
         if (navigator.geolocation) {
             document.getElementById('weather-loading').style.display = 'flex';
@@ -620,7 +610,6 @@
     function showError(error) {
         document.getElementById('weather-loading').style.display = 'none';
         
-        // Hiển thị lỗi rõ hơn
         let msg = "Lỗi không xác định.";
         switch(error.code) {
             case error.PERMISSION_DENIED:
