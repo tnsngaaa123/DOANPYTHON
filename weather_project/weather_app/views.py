@@ -316,7 +316,6 @@ def city_suggest(request):
     if len(q) < 2: return JsonResponse([], safe=False)
     return JsonResponse(get_location_data(q), safe=False)
 
-# 4. VIEW DỰ BÁO 
 @login_required(login_url='login')
 def prediction_view(request):
     if request.method == 'POST':
@@ -337,7 +336,7 @@ def prediction_view(request):
         lat, lon = best['lat'], best['lon']
         
         try:
-            # Dùng timedelta để lấy dữ liệu 3 năm trước
+            # 1. Lấy dữ liệu lịch sử 3 năm
             end_date_hist = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
             start_date_hist = (datetime.now() - timedelta(days=1095)).strftime('%Y-%m-%d')
             
@@ -347,9 +346,10 @@ def prediction_view(request):
                         f"&timezone=auto")
             res_hist = requests.get(url_hist, timeout=8, verify=False).json()
             
+            # 2. Lấy dữ liệu dự báo tương lai (Future)
             url_future = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
                           f"&current=temperature_2m"  
-                          f"&daily=temperature_2m_max,temperature_2m_min,rain_sum,wind_speed_10m_max,shortwave_radiation_sum"
+                          f"&daily=temperature_2m_max,temperature_2m_min,rain_sum,wind_speed_10m_max,shortwave_radiation_sum,uv_index_max,relative_humidity_2m_mean"
                           f"&forecast_days=8&timezone=auto")
             res_future = requests.get(url_future, timeout=8, verify=False).json()
 
@@ -364,6 +364,7 @@ def prediction_view(request):
                 })
                 df.fillna(0, inplace=True)
 
+                # Cấu hình Prophet
                 m = Prophet(
                     daily_seasonality=False,
                     weekly_seasonality=True,
@@ -378,6 +379,7 @@ def prediction_view(request):
                 
                 future = m.make_future_dataframe(periods=8)
                 
+                # Hàm phụ trợ nối dữ liệu
                 def get_regressor(key, hist_s):
                     fut_v = res_future['daily'].get(key, [])
                     avg = sum(hist_s)/len(hist_s) if len(hist_s) > 0 else 0
@@ -391,6 +393,7 @@ def prediction_view(request):
                 
                 forecast = m.predict(future)
                 
+                # Bias Correction
                 current_real_temp = res_future.get('current', {}).get('temperature_2m')
                 today_str = datetime.now().strftime('%Y-%m-%d')
                 ai_today_row = forecast[forecast['ds'].astype(str) == today_str]
@@ -401,12 +404,41 @@ def prediction_view(request):
                     bias_correction = (current_real_temp - ai_today_val) * 0.8
                 
                 display_forecast = forecast.tail(8).iloc[1:] 
-                fut_min_temps = res_future['daily'].get('temperature_2m_min', [])[1:] 
+                
+                # Lấy dữ liệu thực tế từ API Future
+                fut_min_temps = res_future['daily'].get('temperature_2m_min', [])[1:]
+                fut_rain_sum = res_future['daily'].get('rain_sum', [])[1:]
+                fut_uv_index = res_future['daily'].get('uv_index_max', [])[1:]
+                fut_humidity = res_future['daily'].get('relative_humidity_2m_mean', [])[1:]
 
+                # Tính độ chính xác (MAE và Accuracy cũ)
                 forecast_hist = m.predict(df)
                 mae = mean_absolute_error(df['y'], forecast_hist['yhat'])
                 avg_val = df['y'].mean()
                 accuracy = round(max(0, min(100, 100 * (1 - mae/abs(avg_val)))), 1)
+
+                # ====================================================================
+                # === ADDED: Model Confidence (Coverage Probability - Scientific Method) ===
+                # Tính tỷ lệ phần trăm số ngày trong quá khứ mà giá trị thực (y) 
+                # rơi vào trong khoảng dự báo [yhat_lower, yhat_upper]
+                
+                # Tạo series so sánh vector
+                within_interval = (df['y'] >= forecast_hist['yhat_lower']) & (df['y'] <= forecast_hist['yhat_upper'])
+                
+                # Tính Coverage Probability (%)
+                coverage_score = 0
+                if len(df) > 0:
+                    coverage_score = round(within_interval.mean() * 100, 1)
+
+                # Phân loại độ tin cậy dựa trên coverage
+                confidence_label = "Thấp"
+                if coverage_score >= 90:
+                    confidence_label = "Rất tin cậy"
+                elif coverage_score >= 80:
+                    confidence_label = "Tốt"
+                elif coverage_score >= 70:
+                    confidence_label = "Trung bình"
+                # ====================================================================
 
                 preds = []
                 lbls, mins, maxs, avgs = [], [], [], []
@@ -422,10 +454,27 @@ def prediction_view(request):
                     ai_high = row['yhat_upper'] + bias_correction
                     real_min = fut_min_temps[i] if i < len(fut_min_temps) else (row['yhat_lower'] + bias_correction)
                     
+                    # === Xử lý Mưa / UV / Độ ẩm ===
+                    r_val = fut_rain_sum[i] if i < len(fut_rain_sum) else 0
+                    rain_status = "Có mưa" if r_val and r_val > 0.5 else "Không mưa"
+                    
+                    uv_val = fut_uv_index[i] if i < len(fut_uv_index) else 0
+                    uv_level = "Thấp"
+                    if uv_val >= 3: uv_level = "Trung bình"
+                    if uv_val >= 6: uv_level = "Cao"
+                    if uv_val >= 8: uv_level = "Rất cao"
+                    if uv_val >= 11: uv_level = "Nguy hiểm"
+                    
+                    hum_val = fut_humidity[i] if i < len(fut_humidity) else 75
+
                     preds.append({
                         'date': d_str,
                         'range_msg': f"{round(real_min)}°C - {round(ai_high)}°C",
-                        'temp': val_final
+                        'temp': val_final,
+                        'rain_status': rain_status,
+                        'uv_level': uv_level,
+                        'uv_index': round(uv_val, 1),
+                        'humidity': int(hum_val)
                     })
                     
                     lbls.append(d_str)
@@ -439,6 +488,10 @@ def prediction_view(request):
                     'accuracy': accuracy,
                     'mae': round(mae, 2),
                     'chart_data': json.dumps({'labels': lbls, 'min': mins, 'max': maxs, 'avg': avgs}),
+                    # === ADDED: Truyền độ tin cậy khoa học ra Template ===
+                    'confidence': coverage_score,
+                    'confidence_label': confidence_label
+                    # ===================================================
                 })
                 
                 if preds:

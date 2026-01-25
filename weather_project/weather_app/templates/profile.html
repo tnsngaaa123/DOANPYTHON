@@ -11,124 +11,210 @@
         border-radius: 24px; overflow: hidden;
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
+
     .profile-cover {
-        height: 150px; background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); position: relative;
+        height: 150px;
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+        position: relative;
     }
+
     .profile-avatar {
         width: 120px; height: 120px; border-radius: 50%;
-        background: linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
+        background: linear-gradient(45deg, #ff9a9e 0%, #fad0c4 100%);
         display: flex; align-items: center; justify-content: center;
         font-size: 3rem; font-weight: 800; color: white;
-        border: 5px solid rgba(15, 23, 42, 0.8); margin-top: -60px; position: relative; z-index: 2;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3); overflow: hidden;
+        border: 5px solid rgba(15, 23, 42, 0.8);
+        margin-top: -60px; position: relative; z-index: 2;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
     }
+
     .status-badge {
-        background: rgba(46, 204, 113, 0.2); color: #2ecc71;
-        border: 1px solid rgba(46, 204, 113, 0.3); padding: 5px 15px; border-radius: 20px;
-        font-size: 0.8rem; font-weight: 600; display: inline-block; margin-top: 10px;
+        background: rgba(46, 204, 113, 0.2);
+        color: #2ecc71;
+        border: 1px solid rgba(46, 204, 113, 0.3);
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 10px;
     }
+
     .stat-box {
-        background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 16px; padding: 20px; height: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 20px;
+        height: 100%;
     }
+
     .stat-icon {
-        width: 45px; height: 45px; border-radius: 12px;
-        display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 15px;
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
     }
-    .btn-profile-action { padding: 10px 25px; border-radius: 12px; font-weight: 600; transition: all 0.3s; }
-    .btn-logout { background: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); }
-    .btn-logout:hover { background: #e74c3c; color: white; }
-    .interactive-btn { cursor: pointer; transition: transform 0.2s, background 0.2s; }
-    .interactive-btn:hover { transform: scale(1.05); background: rgba(255, 255, 255, 0.2) !important; }
-    
+
+    .btn-profile-action {
+        padding: 10px 25px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    /* === ĐỔI NÚT ĐĂNG XUẤT SANG GRADIENT XANH === */
+    .btn-logout {
+        background: linear-gradient(135deg, #64c4c9ff 0%, #4598e1ff 100%);
+        color: white;
+        border: none;
+        font-weight: 700;
+        transition: all 0.3s ease;
+    }
+
+    .btn-logout:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(69, 152, 225, 0.4);
+        color: white;
+    }
+
+    .interactive-btn {
+        cursor: pointer;
+        transition: transform 0.2s, background 0.2s;
+    }
+
+    .interactive-btn:hover {
+        transform: scale(1.05);
+        background: rgba(255, 255, 255, 0.2) !important;
+    }
+
     .toggle-btn {
-        border: none; outline: none; padding: 8px 0; width: 140px; border-radius: 50px;
-        font-weight: 600; font-size: 0.9rem; transition: all 0.3s ease; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
+        border: none;
+        outline: none;
+        padding: 8px 0;
+        width: 140px;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-    .toggle-on { background: rgba(25, 135, 84, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
-    .toggle-on:hover { background: rgba(25, 135, 84, 0.4); }
-    .toggle-off { background: rgba(220, 53, 69, 0.2); color: #ea868f; border: 1px solid rgba(220, 53, 69, 0.3); }
-    .toggle-off:hover { background: rgba(220, 53, 69, 0.4); }
 
-    /* --- 2. CSS CUSTOM DROPDOWN (PHIÊN BẢN MÀU XANH SÁNG HƠN GẤP NHIỀU LẦN) --- */
-    
+    .toggle-on {
+        background: rgba(25, 135, 84, 0.2);
+        color: #2ecc71;
+        border: 1px solid rgba(46, 204, 113, 0.3);
+    }
+
+    .toggle-on:hover {
+        background: rgba(25, 135, 84, 0.4);
+    }
+
+    .toggle-off {
+        background: rgba(220, 53, 69, 0.2);
+        color: #ea868f;
+        border: 1px solid rgba(220, 53, 69, 0.3);
+    }
+
+    .toggle-off:hover {
+        background: rgba(220, 53, 69, 0.4);
+    }
+
+    /* --- 2. CSS CUSTOM DROPDOWN (XANH SÁNG) --- */
     .glass-modal-content {
-        /* ĐỔI MỚI: Màu xanh dương sáng (Royal Blue), không còn đen nữa */
-        background: rgba(55, 63, 75, 0.75); 
-        
-        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-        
-        /* Viền sáng hơn để tạo cảm giác nhẹ nhàng */
+        background: rgba(55, 63, 75, 0.75);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        
-        border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 
-    .custom-dropdown { position: relative; width: 100%; }
+    .custom-dropdown {
+        position: relative;
+        width: 100%;
+    }
 
     .dropdown-input {
-        background: rgba(0, 0, 0, 0.2); /* Giữ trong suốt để hiện màu nền xanh */
+        background: rgba(0, 0, 0, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        color: white; border-radius: 12px; padding: 12px 15px; padding-right: 40px;
-        width: 100%; transition: all 0.3s; cursor: text;
+        color: white;
+        border-radius: 12px;
+        padding: 12px 15px;
+        padding-right: 40px;
+        width: 100%;
+        transition: all 0.3s;
+        cursor: text;
     }
+
     .dropdown-input:focus {
-        background: rgba(0, 0, 0, 0.3); border-color: #7dd3fc; /* Đổi viền focus sang xanh lơ sáng */
-        box-shadow: 0 0 15px rgba(125, 211, 252, 0.3); outline: none;
-    }
-    .dropdown-input:disabled {
-        background: rgba(255, 255, 255, 0.1); cursor: not-allowed;
+        background: rgba(0, 0, 0, 0.3);
+        border-color: #7dd3fc;
+        box-shadow: 0 0 15px rgba(125, 211, 252, 0.3);
+        outline: none;
     }
 
     .dropdown-toggle-icon {
-        position: absolute; top: 50%; right: 15px;
+        position: absolute;
+        top: 50%;
+        right: 15px;
         transform: translateY(-50%);
         color: rgba(255, 255, 255, 0.7);
-        cursor: pointer; z-index: 10; padding: 5px;
+        cursor: pointer;
+        z-index: 10;
+        padding: 5px;
         transition: color 0.2s, transform 0.2s;
     }
-    .dropdown-toggle-icon:hover { color: white; }
-    .custom-dropdown.open .dropdown-toggle-icon { transform: translateY(-50%) rotate(180deg); }
 
-    /* Danh sách xổ xuống - ĐỔI MÀU CHO KHỚP MODAL */
+    .custom-dropdown.open .dropdown-toggle-icon {
+        transform: translateY(-50%) rotate(180deg);
+    }
+
     .dropdown-list {
-        position: absolute; top: 100%; left: 0; right: 0;
-        /* Màu nền danh sách: Xanh dương nhạt hơn bản cũ nhiều */
-        background: #204565; 
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #204565;
         border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 12px; margin-top: 5px;
-        max-height: 250px; overflow-y: auto;
-        z-index: 1000; display: none;
+        border-radius: 12px;
+        margin-top: 5px;
+        max-height: 250px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
-    .dropdown-list.show { display: block; animation: fadeIn 0.2s ease-out; }
+
+    .dropdown-list.show {
+        display: block;
+        animation: fadeIn 0.2s ease-out;
+    }
 
     .dropdown-item {
-        padding: 12px 15px; color: #e2e8f0; cursor: pointer;
-        transition: background 0.2s; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 12px 15px;
+        color: #e2e8f0;
+        cursor: pointer;
+        transition: background 0.2s;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .dropdown-item:last-child { border-bottom: none; }
-    
-    /* Khi di chuột vào thì sáng rực lên */
-    .dropdown-item:hover { background: rgba(56, 189, 248, 0.3); color: white; }
-    
-    /* Thanh cuộn */
-    .dropdown-list::-webkit-scrollbar { width: 12px; }
-    .dropdown-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 0 12px 12px 0; }
-    .dropdown-list::-webkit-scrollbar-thumb { 
-        background: rgba(255,255,255,0.3); border-radius: 10px; border: 2px solid #204565; 
-    }
-    .dropdown-list::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
 
-    .btn-save-gradient {
-        background: linear-gradient(135deg, #64c4c9ff 0%, #4598e1ff 100%);
-        border: none; color: white; font-weight: 700; border-radius: 10px;
-        transition: transform 0.2s;
+    .dropdown-item:hover {
+        background: rgba(56, 189, 248, 0.3);
+        color: white;
     }
-    .btn-save-gradient:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0, 242, 254, 0.3); color: white; }
-    
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 </style>
 {% endblock %}
 
