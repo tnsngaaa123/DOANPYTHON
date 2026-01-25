@@ -31,7 +31,7 @@ class Command(BaseCommand):
         # Thiết lập chạy mỗi 10 phút (vào các phút :00, :10, :20,...)
         scheduler.add_job(
             send_weather_job,
-            trigger=CronTrigger(minute="*/1"), 
+            trigger=CronTrigger(minute="*/30"), 
             id="UNIQUE_EXTREME_WEATHER_JOB",
             max_instances=1,
             replace_existing=True,
@@ -39,7 +39,7 @@ class Command(BaseCommand):
 
         print("🚀 [HỆ THỐNG ĐÃ SẴN SÀNG]")
         print("📌 Chế độ: Chỉ gửi cảnh báo khi phát hiện dấu hiệu nguy hiểm.")
-        print("📌 Tình trạng: Đang chạy ngầm (Sẽ hiện log nhịp đập mỗi 10 phút).")
+        print("📌 Tình trạng: Đang chạy ngầm (Sẽ hiện mỗi 30 phút).")
 
         try:
             scheduler.start()
