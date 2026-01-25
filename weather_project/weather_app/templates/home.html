@@ -362,8 +362,8 @@
         </a>
 
         <a href="{% url 'profile' %}" class="nav-btn" title="Tài khoản">
-            {% if request.user.userprofile.avatar and "default.jpg" not in request.user.userprofile.avatar.url %}
-                <img src="{{ request.user.userprofile.avatar.url }}" 
+            {% if request.user.profile.avatar and "default.jpg" not in request.user.profile.avatar.url %}
+                <img src="{{ request.user.profile.avatar.url }}" 
                      style="width: 100%; height: 100%; object-fit: cover;">
             {% else %}
                 <div class="w-100 h-100 d-flex align-items-center justify-content-center bg-warning text-dark fw-bold" style="font-size: 1.2rem;">

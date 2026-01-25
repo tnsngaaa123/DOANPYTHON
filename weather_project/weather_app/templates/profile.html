@@ -1,243 +1,456 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block extra_css %}
 <style>
-    /* --- PROFILE CARD STYLES --- */
+    /* --- 1. GIỮ NGUYÊN CSS GIAO DIỆN PROFILE CŨ --- */
     .profile-card {
         background: rgba(15, 23, 42, 0.6);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 24px;
-        overflow: hidden;
+        border-radius: 24px; overflow: hidden;
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-        transition: transform 0.3s ease;
     }
-
-    /* Ảnh bìa */
     .profile-cover {
-        height: 150px;
-        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-        position: relative;
+        height: 150px; background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); position: relative;
     }
-
-    .profile-cover::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 50%;
-        background: linear-gradient(to top, rgba(15, 23, 42, 0.6), transparent);
-    }
-
-    /* Avatar - Đã thêm overflow hidden để cắt ảnh tròn */
     .profile-avatar {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
+        width: 120px; height: 120px; border-radius: 50%;
         background: linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 3rem;
-        font-weight: 800;
-        color: white;
-        border: 5px solid rgba(15, 23, 42, 0.8);
-        margin-top: -60px;
-        position: relative;
-        z-index: 2;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-        overflow: hidden; /* Quan trọng để ảnh không bị tràn khung tròn */
+        display: flex; align-items: center; justify-content: center;
+        font-size: 3rem; font-weight: 800; color: white;
+        border: 5px solid rgba(15, 23, 42, 0.8); margin-top: -60px; position: relative; z-index: 2;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3); overflow: hidden;
     }
-
-    /* Badge trạng thái */
     .status-badge {
-        background: rgba(46, 204, 113, 0.2);
-        color: #2ecc71;
-        border: 1px solid rgba(46, 204, 113, 0.3);
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        display: inline-block;
-        margin-top: 10px;
+        background: rgba(46, 204, 113, 0.2); color: #2ecc71;
+        border: 1px solid rgba(46, 204, 113, 0.3); padding: 5px 15px; border-radius: 20px;
+        font-size: 0.8rem; font-weight: 600; display: inline-block; margin-top: 10px;
     }
-
-    /* Stat Box */
     .stat-box {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 16px;
-        padding: 20px;
-        transition: all 0.3s ease;
-        height: 100%;
+        background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px; padding: 20px; height: 100%;
     }
-
-    .stat-box:hover {
-        background: rgba(255, 255, 255, 0.1);
-        transform: translateY(-5px);
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-
     .stat-icon {
-        width: 45px;
-        height: 45px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        margin-bottom: 15px;
+        width: 45px; height: 45px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 15px;
+    }
+    .btn-profile-action { padding: 10px 25px; border-radius: 12px; font-weight: 600; transition: all 0.3s; }
+    .btn-logout { background: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); }
+    .btn-logout:hover { background: #e74c3c; color: white; }
+    .interactive-btn { cursor: pointer; transition: transform 0.2s, background 0.2s; }
+    .interactive-btn:hover { transform: scale(1.05); background: rgba(255, 255, 255, 0.2) !important; }
+    
+    .toggle-btn {
+        border: none; outline: none; padding: 8px 0; width: 140px; border-radius: 50px;
+        font-weight: 600; font-size: 0.9rem; transition: all 0.3s ease; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .toggle-on { background: rgba(25, 135, 84, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); }
+    .toggle-on:hover { background: rgba(25, 135, 84, 0.4); }
+    .toggle-off { background: rgba(220, 53, 69, 0.2); color: #ea868f; border: 1px solid rgba(220, 53, 69, 0.3); }
+    .toggle-off:hover { background: rgba(220, 53, 69, 0.4); }
+
+    /* --- 2. CSS CUSTOM DROPDOWN (PHIÊN BẢN MÀU XANH SÁNG HƠN GẤP NHIỀU LẦN) --- */
+    
+    .glass-modal-content {
+        /* ĐỔI MỚI: Màu xanh dương sáng (Royal Blue), không còn đen nữa */
+        background: rgba(55, 63, 75, 0.75); 
+        
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        
+        /* Viền sáng hơn để tạo cảm giác nhẹ nhàng */
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        
+        border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 
-    /* Nút bấm */
-    .btn-profile-action {
-        padding: 10px 25px;
-        border-radius: 12px;
-        font-weight: 600;
-        transition: all 0.3s;
+    .custom-dropdown { position: relative; width: 100%; }
+
+    .dropdown-input {
+        background: rgba(0, 0, 0, 0.2); /* Giữ trong suốt để hiện màu nền xanh */
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white; border-radius: 12px; padding: 12px 15px; padding-right: 40px;
+        width: 100%; transition: all 0.3s; cursor: text;
+    }
+    .dropdown-input:focus {
+        background: rgba(0, 0, 0, 0.3); border-color: #7dd3fc; /* Đổi viền focus sang xanh lơ sáng */
+        box-shadow: 0 0 15px rgba(125, 211, 252, 0.3); outline: none;
+    }
+    .dropdown-input:disabled {
+        background: rgba(255, 255, 255, 0.1); cursor: not-allowed;
     }
 
-    .btn-logout {
-        background: rgba(231, 76, 60, 0.15);
-        color: #e74c3c;
-        border: 1px solid rgba(231, 76, 60, 0.3);
+    .dropdown-toggle-icon {
+        position: absolute; top: 50%; right: 15px;
+        transform: translateY(-50%);
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer; z-index: 10; padding: 5px;
+        transition: color 0.2s, transform 0.2s;
     }
+    .dropdown-toggle-icon:hover { color: white; }
+    .custom-dropdown.open .dropdown-toggle-icon { transform: translateY(-50%) rotate(180deg); }
 
-    .btn-logout:hover {
-        background: #e74c3c;
-        color: white;
-        box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+    /* Danh sách xổ xuống - ĐỔI MÀU CHO KHỚP MODAL */
+    .dropdown-list {
+        position: absolute; top: 100%; left: 0; right: 0;
+        /* Màu nền danh sách: Xanh dương nhạt hơn bản cũ nhiều */
+        background: #204565; 
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px; margin-top: 5px;
+        max-height: 250px; overflow-y: auto;
+        z-index: 1000; display: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
+    .dropdown-list.show { display: block; animation: fadeIn 0.2s ease-out; }
+
+    .dropdown-item {
+        padding: 12px 15px; color: #e2e8f0; cursor: pointer;
+        transition: background 0.2s; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    
+    /* Khi di chuột vào thì sáng rực lên */
+    .dropdown-item:hover { background: rgba(56, 189, 248, 0.3); color: white; }
+    
+    /* Thanh cuộn */
+    .dropdown-list::-webkit-scrollbar { width: 12px; }
+    .dropdown-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 0 12px 12px 0; }
+    .dropdown-list::-webkit-scrollbar-thumb { 
+        background: rgba(255,255,255,0.3); border-radius: 10px; border: 2px solid #204565; 
+    }
+    .dropdown-list::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+
+    .btn-save-gradient {
+        background: linear-gradient(135deg, #64c4c9ff 0%, #4598e1ff 100%);
+        border: none; color: white; font-weight: 700; border-radius: 10px;
+        transition: transform 0.2s;
+    }
+    .btn-save-gradient:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0, 242, 254, 0.3); color: white; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
     <div class="col-md-8 col-lg-6">
-
         <div class="profile-card fade-in-up">
-
             <div class="profile-cover">
                 <div class="position-absolute top-0 end-0 p-3 dropdown">
                     <button class="btn btn-sm btn-dark bg-black bg-opacity-50 border-0 text-white rounded-circle"
-                        type="button" data-bs-toggle="dropdown" aria-expanded="false"
-                        style="width: 35px; height: 35px; transition: all 0.2s;">
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 35px; height: 35px;">
                         <i class="fa-solid fa-gear"></i>
                     </button>
-
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2"
-                        style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden;">
-
-                        <li>
-                            <a class="dropdown-item py-2" href="{% url 'edit_profile' %}"> 
-                                <i class="fa-solid fa-user-pen me-2 text-primary"></i>Sửa hồ sơ
-                            </a>
-                        </li>
-
-                        <li>
-                            <a class="dropdown-item py-2" href="{% url 'change_password' %}"> 
-                                <i class="fa-solid fa-key me-2 text-warning"></i>Đổi mật khẩu
-                            </a>
-                        </li>
-
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2" style="border-radius: 12px;">
+                        <li><a class="dropdown-item py-2" href="{% url 'edit_profile' %}"><i class="fa-solid fa-user-pen me-2"></i>Sửa hồ sơ</a></li>
+                        <li><a class="dropdown-item py-2" href="{% url 'change_password' %}"><i class="fa-solid fa-key me-2"></i>Đổi mật khẩu</a></li>
                         <li><hr class="dropdown-divider"></li>
-
-                        <li>
-                            <a class="dropdown-item py-2 text-danger fw-bold" href="{% url 'logout' %}">
-                                <i class="fa-solid fa-power-off me-2"></i>Đăng xuất
-                            </a>
-                        </li>
+                        <li><a class="dropdown-item py-2 text-danger" href="{% url 'logout' %}"><i class="fa-solid fa-power-off me-2"></i>Đăng xuất</a></li>
                     </ul>
                 </div>
             </div>
 
             <div class="px-4 pb-4 text-center">
-
                 <div class="d-flex flex-column align-items-center">
-                    
                     <div class="profile-avatar">
-                        {% if request.user.userprofile.avatar and "default.jpg" not in request.user.userprofile.avatar.url %}
-                            <img src="{{ request.user.userprofile.avatar.url }}" 
-                                 alt="User Avatar"
-                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        {% if request.user.profile.avatar and "default.jpg" not in request.user.profile.avatar.url %}
+                            <img src="{{ request.user.profile.avatar.url }}" style="width: 100%; height: 100%; object-fit: cover;">
                         {% else %}
-                            {% if request.user.first_name %}
-                                {{ request.user.first_name|slice:":1"|upper }}
-                            {% else %}
-                                {{ request.user.username|slice:":1"|upper }}
-                            {% endif %}
+                            {% if request.user.first_name %}{{ request.user.first_name|slice:":1"|upper }}{% else %}{{ request.user.username|slice:":1"|upper }}{% endif %}
                         {% endif %}
                     </div>
                     <h2 class="fw-bold mt-3 text-white mb-0">
-                        {% if request.user.last_name and request.user.first_name %}
-                            {{ request.user.last_name }} {{ request.user.first_name }}
-                        {% else %}
-                            {{ request.user.username }}
-                        {% endif %}
+                        {% if request.user.last_name %}{{ request.user.last_name }} {{ request.user.first_name }}{% else %}{{ request.user.username }}{% endif %}
                     </h2>
+                    <small class="text-white-50">@{{ request.user.username }}</small>
+                    <div class="status-badge mt-2"><i class="fa-solid fa-circle-check me-1"></i> Thành viên chính thức</div>
+                    <p class="text-white-50 mt-2 mb-0"><i class="fa-regular fa-envelope me-2 text-info"></i>{{ request.user.email|default:"Chưa cập nhật email" }}</p>
 
-                    {% if request.user.last_name and request.user.first_name %}
-                        <small class="text-white-50">@{{ request.user.username }}</small>
-                    {% endif %}
+                    <div class="mt-4 pt-4 border-top border-secondary border-opacity-50 w-100 px-md-5" style="border-top-width: 2px;">
+    
+                        <div class="text-uppercase text-white fw-bold mb-3" style="font-size: 1.1rem; letter-spacing: 1px;">
+                            Cài đặt cảnh báo
+                        </div>
+                        
+                        <div class="text-white-50 mb-3 small">Nhận email về thời tiết cực đoan</div>
+                        
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap">
+                            <div class="interactive-btn d-flex align-items-center text-white bg-white bg-opacity-10 px-3 py-2 rounded-pill"
+                                data-bs-toggle="modal" data-bs-target="#editCityModal">
+                                <i class="fa-solid fa-city me-2 text-warning"></i>
+                                <span id="display-city-name">{{ request.user.profile.alert_city|default:"Chưa đặt" }}</span>
+                                <i class="fa-solid fa-pen ms-2 text-white-50" style="font-size: 0.8rem;"></i>
+                            </div>
 
-                    <div class="status-badge mt-2">
-                        <i class="fa-solid fa-circle-check me-1"></i> Thành viên chính thức
+                            <button type="button" id="alert-toggle-btn" onclick="handleToggle()" 
+                                class="toggle-btn {% if request.user.profile.receive_alerts %}toggle-on{% else %}toggle-off{% endif %}">
+                                {% if request.user.profile.receive_alerts %}
+                                    <i class="fa-solid fa-bell fa-fw me-2"></i>Đang Bật
+                                {% else %}
+                                    <i class="fa-solid fa-bell-slash fa-fw me-2"></i>Đang Tắt
+                                {% endif %}
+                            </button>
+                        </div>
                     </div>
-
-                    <p class="text-white-50 mt-2 mb-0">
-                        <i class="fa-regular fa-envelope me-2 text-info"></i>
-                        {% if request.user.email %}
-                            {{ request.user.email }}
-                        {% else %}
-                            Chưa cập nhật email
-                        {% endif %}
-                    </p>
                 </div>
-
+                
                 <div class="row g-3 mt-4">
                     <div class="col-6">
                         <div class="stat-box">
-                            <div class="stat-icon bg-warning bg-opacity-25 text-warning mx-auto">
-                                <i class="fa-solid fa-magnifying-glass-chart"></i>
-                            </div>
+                            <div class="stat-icon bg-warning bg-opacity-25 text-warning mx-auto"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
                             <h3 class="fw-bold text-white mb-1">{{ total_searches }}</h3>
-                            <small class="text-white-50 text-uppercase"
-                                style="font-size: 0.75rem; letter-spacing: 1px;">Lượt tra cứu</small>
+                            <small class="text-white-50">Lượt tra cứu</small>
                         </div>
                     </div>
-
                     <div class="col-6">
                         <div class="stat-box">
-                            <div class="stat-icon bg-info bg-opacity-25 text-info mx-auto">
-                                <i class="fa-solid fa-location-dot"></i>
-                            </div>
+                            <div class="stat-icon bg-info bg-opacity-25 text-info mx-auto"><i class="fa-solid fa-location-dot"></i></div>
                             <h4 class="fw-bold text-white mb-1 text-truncate px-2">{{ last_city }}</h4>
-                            <small class="text-white-50 text-uppercase"
-                                style="font-size: 0.75rem; letter-spacing: 1px;">Mới tìm gần đây</small>
+                            <small class="text-white-50">Mới tìm gần đây</small>
                         </div>
                     </div>
                 </div>
-
+                
                 <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
                     <div class="text-start">
                         <small class="text-white-50 d-block">Ngày tham gia</small>
-
-                        <span class="text-white fw-bold">
-                            <i class="fa-regular fa-calendar me-2"></i>
-                            {{ request.user.date_joined|date:"d/m/Y" }}
-                        </span>
+                        <span class="text-white fw-bold">{{ request.user.date_joined|date:"d/m/Y" }}</span>
                     </div>
-
                     <a href="{% url 'logout' %}" class="btn btn-profile-action btn-logout text-decoration-none">
                         <i class="fa-solid fa-right-from-bracket me-2"></i>Đăng xuất
                     </a>
                 </div>
-
             </div>
         </div>
+    </div>
+</div>  
 
+<div class="modal fade" id="editCityModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-modal-content text-white">
+            
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold">
+                    <i class="fa-solid fa-map-location-dot me-2 text-info"></i>Chọn khu vực
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body py-4">
+                
+                <div class="mb-4">
+                    <label class="text-white-50 small mb-2 fw-bold text-uppercase">Bước 1: Chọn Quốc gia</label>
+                    <div class="custom-dropdown" id="country-wrapper">
+                        <input type="text" id="country-input" class="dropdown-input" placeholder="Chọn một quốc gia" autocomplete="off">
+                        <i class="fa-solid fa-chevron-down dropdown-toggle-icon" id="country-toggle"></i>
+                        <div id="country-list" class="dropdown-list"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <label class="text-white-50 small mb-2 fw-bold text-uppercase">Bước 2: Tỉnh / Thành phố</label>
+                    <div class="custom-dropdown" id="city-wrapper">
+                        <input type="text" id="city-input" class="dropdown-input" placeholder="Chọn quốc gia trước..." disabled autocomplete="off">
+                        <i class="fa-solid fa-chevron-down dropdown-toggle-icon" id="city-toggle"></i>
+                        <div id="city-list" class="dropdown-list"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer border-top border-secondary border-opacity-25">
+                <button type="button" class="btn btn-outline-light border-0" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-save-gradient px-4" onclick="saveCity()">
+                    <i class="fa-solid fa-check me-2"></i>Lưu thay đổi
+                </button>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    // --- DỮ LIỆU ---
+    const vietnamCities = [
+        "Bà Rịa", "Bạc Liêu", "Bảo Lộc", "Bắc Giang", "Bắc Kạn", "Bắc Ninh", 
+        "Bến Cát", "Bến Tre", "Biên Hòa", "Bỉm Sơn", "Buôn Ma Thuột", "Cà Mau", 
+        "Cam Ranh", "Cao Bằng", "Cao Lãnh", "Cẩm Phả", "Cần Thơ", "Châu Đốc", 
+        "Chí Linh", "Cửa Lò", "Dĩ An", "Đà Lạt", "Đà Nẵng", "Đồng Hới", 
+        "Đồng Xoài", "Đông Hà", "Đông Triều", "Gia Nghĩa", "Gò Công", "Hà Giang", 
+        "Hà Nội", "Hà Tiên", "Hà Tĩnh", "Hạ Long", "Hải Dương", "Hải Phòng", 
+        "Hòa Bình", "Hội An", "Hồng Ngự", "Huế", "Hưng Yên", "Kon Tum", 
+        "Lai Châu", "Lạng Sơn", "Lào Cai", "Long Khánh", "Long Xuyên", "Móng Cái", 
+        "Mỹ Tho", "Nam Định", "Ngã Bảy", "Nha Trang", "Ninh Bình", "Phan Rang – Tháp Chàm", 
+        "Phan Thiết", "Phổ Yên", "Phủ Lý", "Phúc Yên", "Phú Mỹ", "Phú Quốc", 
+        "Pleiku", "Quảng Ngãi", "Quy Nhơn", "Rạch Giá", "Sa Đéc", "Sầm Sơn", 
+        "Sóc Trăng", "Sông Công", "Sơn La", "Tam Điệp", "Tam Kỳ", "Tân An", 
+        "Tân Uyên", "Tây Ninh", "Thái Bình", "Thái Hòa", "Thái Nguyên", "Thanh Hóa", 
+        "Thủ Dầu Một", "Thuận An", "TP Hồ Chí Minh", "Trà Vinh", "Tuy Hòa", 
+        "Tuyên Quang", "Từ Sơn", "Uông Bí", "Việt Trì", "Vị Thanh", "Vinh", 
+        "Vĩnh Long", "Vĩnh Yên", "Vũng Tàu", "Yên Bái"
+    ];
+    vietnamCities.sort((a, b) => a.localeCompare(b, 'vi'));
+
+    let allCountriesData = [];
+    let currentCityData = [];
+
+    // --- CẤU HÌNH DROP DOWN ---
+    document.addEventListener("DOMContentLoaded", function() {
+        fetch("https://countriesnow.space/api/v0.1/countries")
+            .then(res => res.json())
+            .then(data => {
+                if (!data.error) {
+                    allCountriesData = data.data;
+                    allCountriesData.sort((a, b) => a.country.localeCompare(b.country));
+                }
+            })
+            .catch(e => console.error("Lỗi API:", e));
+
+        // Setup Dropdown cho Quốc gia (Có nút toggle)
+        setupDropdown('country-input', 'country-list', 'country-toggle', 'country-wrapper', () => {
+            return allCountriesData.map(c => c.country);
+        }, (selectedCountry) => {
+            loadCitiesForInput(selectedCountry);
+        });
+
+        // Setup Dropdown cho Thành phố (Có nút toggle)
+        setupDropdown('city-input', 'city-list', 'city-toggle', 'city-wrapper', () => {
+            return currentCityData;
+        }, null);
+    });
+
+    // --- HÀM LOGIC CHO DROPDOWN (CẬP NHẬT NÚT MŨI TÊN) ---
+    function setupDropdown(inputId, listId, toggleId, wrapperId, getSourceData, onSelectCallback) {
+        const input = document.getElementById(inputId);
+        const list = document.getElementById(listId);
+        const toggleBtn = document.getElementById(toggleId);
+        const wrapper = document.getElementById(wrapperId);
+
+        // Hàm hiện list
+        const showList = (items) => {
+            list.innerHTML = '';
+            if (items.length === 0) {
+                list.innerHTML = '<div class="dropdown-item text-muted">Không tìm thấy kết quả</div>';
+            } else {
+                items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.textContent = item; // Không còn tô màu Vietnam nữa, hiện bình thường
+                    div.addEventListener('click', () => {
+                        input.value = item;
+                        closeList();
+                        if (onSelectCallback) onSelectCallback(item);
+                    });
+                    list.appendChild(div);
+                });
+            }
+            list.classList.add('show');
+            wrapper.classList.add('open');
+        };
+
+        const closeList = () => {
+            list.classList.remove('show');
+            wrapper.classList.remove('open');
+        };
+
+        // 1. Sự kiện click vào ô input
+        input.addEventListener('click', () => {
+            if (input.disabled) return;
+            const source = getSourceData();
+            showList(source); // Mở full danh sách khi click vào
+        });
+
+        // 2. Sự kiện gõ chữ
+        input.addEventListener('input', () => {
+            const keyword = input.value.toLowerCase();
+            const source = getSourceData();
+            const filtered = source.filter(item => item.toLowerCase().includes(keyword));
+            showList(filtered);
+        });
+
+        // 3. Sự kiện click nút mũi tên (QUAN TRỌNG: GIỜ ĐÃ HOẠT ĐỘNG)
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Ngăn chặn sự kiện click lan ra ngoài
+            if (input.disabled) return;
+
+            if (list.classList.contains('show')) {
+                closeList(); // Đang mở thì đóng
+            } else {
+                const source = getSourceData();
+                showList(source); // Đang đóng thì mở full list
+                input.focus(); // Focus vào input để gõ được luôn
+            }
+        });
+
+        // 4. Click ra ngoài thì đóng
+        document.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target)) {
+                closeList();
+            }
+        });
+    }
+
+    // --- CÁC HÀM XỬ LÝ KHÁC (GIỮ NGUYÊN) ---
+    function loadCitiesForInput(countryName) {
+        const cityInput = document.getElementById('city-input');
+        
+        cityInput.value = "";
+        cityInput.disabled = false;
+        cityInput.placeholder = "Chọn một thành phố";
+        
+        if (countryName === "Vietnam") {
+            currentCityData = vietnamCities;
+        } else {
+            const countryData = allCountriesData.find(c => c.country === countryName);
+            currentCityData = countryData ? countryData.cities.sort() : [];
+        }
+        // Tự động mở list thành phố khi chọn xong quốc gia cho tiện
+        cityInput.click();
+        cityInput.focus();
+    }
+
+    function saveCity() {
+        const cityInput = document.getElementById('city-input');
+        const selectedCity = cityInput.value.trim();
+        const displayCity = document.getElementById('display-city-name');
+
+        if (!selectedCity) {
+            alert("Vui lòng nhập hoặc chọn một thành phố!");
+            return;
+        }
+
+        const modalEl = document.getElementById('editCityModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        modalInstance.hide();
+
+        fetch("{% url 'update_alert_city' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: selectedCity })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayCity.innerText = data.city;
+            } else { alert("Lỗi cập nhật."); }
+        });
+    }
+
+    function handleToggle() {
+        const btn = document.getElementById('alert-toggle-btn');
+        const isCurrentlyOn = btn.classList.contains('toggle-on');
+        
+        if (isCurrentlyOn) {
+            btn.className = "toggle-btn toggle-off";
+            btn.innerHTML = '<i class="fa-solid fa-bell-slash fa-fw me-2"></i>Đang Tắt';
+        } else {
+            btn.className = "toggle-btn toggle-on";
+            btn.innerHTML = '<i class="fa-solid fa-bell fa-fw me-2"></i>Đang Bật';
+        }
+
+        fetch("{% url 'update_alert_status' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' }
+        });
+    }
+</script>
 {% endblock %}

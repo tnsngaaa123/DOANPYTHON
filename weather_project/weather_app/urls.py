@@ -32,4 +32,6 @@ urlpatterns = [
      path('profile/edit/', views.edit_profile_view, name='edit_profile'),
      path('profile/password/', views.change_password_view, name='change_password'),
      path('detail/', views.detail_view, name='detail'),
+     path('update-alert-status/', views.update_alert_status, name='update_alert_status'),
+     path('update-alert-city/', views.update_alert_city, name='update_alert_city'),
 ]

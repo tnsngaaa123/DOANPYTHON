@@ -2,13 +2,12 @@ from prophet import Prophet
 from urllib.parse import quote
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-
+from unidecode import unidecode
 from django.contrib.auth import login, logout, update_session_auth_hash
 
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, PasswordChangeForm
 
-from .forms import RegisterForm, ProfileUpdateForm, ProfilePicForm
-
+from .forms import RegisterForm, ProfileUpdateForm, UserProfileForm
 from .models import SearchHistory
 from .models import UserProfile
 
@@ -25,7 +24,7 @@ import json
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
+#định danh cho wed
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://www.google.com/'
@@ -455,7 +454,6 @@ def prediction_view(request):
             
     return render(request, 'prediction.html', context)
 
-# 5. VIEW CHI TIẾT (DETAIL) - GIAO DIỆN PRO MỚI
 @login_required(login_url='login')
 def detail_view(request):
     raw_lat = request.GET.get('lat')
@@ -599,27 +597,37 @@ def logout_view(request):
 
 @login_required
 def edit_profile_view(request):
+    # Lấy profile hiện tại của user
     profile, created = UserProfile.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
+        # Nạp dữ liệu từ form gửi lên
         u_form = ProfileUpdateForm(request.POST, instance=request.user)
-        p_form = ProfilePicForm(request.POST, request.FILES, instance=profile)
+        # Quan trọng: request.FILES để nhận file ảnh
+        p_form = UserProfileForm(request.POST, request.FILES, instance=profile)
 
         if u_form.is_valid() and p_form.is_valid():
             u_form.save()
             p_form.save()
-            messages.success(request, 'Hồ sơ của bạn đã được cập nhật!')
-            return redirect('profile')
+            
+            messages.success(request, 'Cập nhật hồ sơ thành công!')
+            return redirect('profile') # Lưu xong chuyển hướng về trang Profile
+            
+        else:
+            # Nếu có lỗi (VD: Email không hợp lệ, ảnh quá nặng...)
+            messages.error(request, 'Cập nhật thất bại. Vui lòng kiểm tra lại thông tin.')
+            # (Tùy chọn) In lỗi ra terminal nếu muốn debug khi gặp sự cố
+            # print(u_form.errors, p_form.errors) 
     else:
+        # Nếu là GET (mới vào trang), hiển thị thông tin hiện tại
         u_form = ProfileUpdateForm(instance=request.user)
-        p_form = ProfilePicForm(instance=profile)
+        p_form = UserProfileForm(instance=profile)
     
     context = {
         'u_form': u_form,
         'p_form': p_form
     }
     return render(request, 'edit_profile.html', context)
-
 @login_required
 def change_password_view(request):
     if request.method == 'POST':
@@ -635,3 +643,62 @@ def change_password_view(request):
         form = PasswordChangeForm(request.user)
         
     return render(request, 'change_password.html', {'form': form})
+@login_required
+def update_alert_status(request):
+    if request.method == "POST":
+        try:
+            profile = request.user.profile
+            # Đảo ngược trạng thái: Đang True thành False, False thành True
+            profile.receive_alerts = not profile.receive_alerts
+            profile.save()
+            
+            return JsonResponse({
+                'status': 'success', 
+                'is_active': profile.receive_alerts
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error'}, status=400)
+
+# HÀM ĐỔI THÀNH PHỐ
+@login_required
+def update_alert_city(request):
+    """
+    Hàm cập nhật thành phố cảnh báo.
+    Chấp nhận cả 2 trường hợp:
+    1. Từ Trang chủ: Có kèm tọa độ (lat, lon).
+    2. Từ Profile: Chỉ có tên thành phố (city).
+    """
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            city = data.get('city', '').strip()
+            
+            # Lấy tọa độ (nếu có)
+            lat = data.get('lat')
+            lon = data.get('lon')
+            
+            # CHỈ CẦN CÓ TÊN LÀ LƯU (Sửa lỗi tại đây)
+            if city:
+                profile = request.user.profile
+                profile.alert_city = city
+                
+                # Nếu có tọa độ thì lưu luôn (từ trang chủ gửi sang)
+                if lat is not None and lon is not None:
+                    try:
+                        profile.alert_lat = float(lat)
+                        profile.alert_lon = float(lon)
+                    except ValueError:
+                        pass # Bỏ qua nếu tọa độ lỗi
+                
+                # Lưu vào database
+                profile.save()
+                
+                return JsonResponse({'status': 'success', 'city': city})
+            
+        except Exception as e:
+            print(f"Lỗi khi lưu city: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Lỗi dữ liệu'}, status=400)
+            
+    return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ'}, status=400)

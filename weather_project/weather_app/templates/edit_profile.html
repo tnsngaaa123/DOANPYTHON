@@ -2,7 +2,7 @@
 
 {% block extra_css %}
 <style>
-    /* Tái sử dụng style Glassmorphism */
+    /* Style Glassmorphism */
     .glass-card {
         background: rgba(15, 23, 42, 0.6);
         backdrop-filter: blur(20px);
@@ -13,41 +13,45 @@
         color: white;
     }
 
-    /* Style riêng cho Input trong suốt */
-    .glass-input {
+    /* Style Input */
+    .form-control {
         background: rgba(255, 255, 255, 0.05) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         color: white !important;
         border-radius: 12px;
         padding: 12px 20px;
     }
-
-    .glass-input:focus {
+    .form-control:focus {
         background: rgba(255, 255, 255, 0.1) !important;
         border-color: #4facfe !important;
         box-shadow: 0 0 15px rgba(79, 172, 254, 0.3);
     }
-
-    /* Style cho input file (chọn ảnh) */
-    input[type="file"]::file-selector-button {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        padding: 8px 15px;
-        border-radius: 8px;
-        margin-right: 15px;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    input[type="file"]::file-selector-button:hover {
-        background: rgba(255, 255, 255, 0.2);
-    }
-
     label {
-        font-weight: 500;
-        margin-bottom: 8px;
-        color: rgba(255, 255, 255, 0.7);
+        font-weight: 500; margin-bottom: 8px; color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* --- STYLE MỚI CHO NÚT CHỌN FILE --- */
+    .custom-file-upload {
+        display: inline-block;
+        padding: 8px 20px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50px;
+        color: white;
+        transition: all 0.3s;
+        font-size: 0.9rem;
+    }
+    .custom-file-upload:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: white;
+    }
+    .file-name-display {
+        margin-top: 10px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.85rem;
+        word-wrap: break-word; /* Tự động xuống dòng nếu tên quá dài */
     }
 </style>
 {% endblock %}
@@ -59,50 +63,59 @@
 
             <div class="text-center mb-4">
                 <h3 class="fw-bold">Chỉnh sửa hồ sơ</h3>
-                <p class="text-white-50">Cập nhật thông tin cá nhân & Ảnh đại diện</p>
+                <p class="text-white-50">Cập nhật thông tin cá nhân</p>
             </div>
 
             <form method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
 
+                {% if u_form.errors or p_form.errors %}
+                    <div class="alert alert-danger bg-danger bg-opacity-25 border-danger text-white mb-4">
+                        <strong><i class="fa-solid fa-triangle-exclamation me-2"></i>Có lỗi xảy ra:</strong>
+                    </div>
+                {% endif %}
+                
                 <div class="mb-4 text-center p-3 rounded-3" style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.2);">
-                    <label class="d-block mb-3 text-white">Ảnh đại diện hiện tại</label>
+                    <label class="d-block mb-3 text-white">Ảnh đại diện</label>
                     
                     <div class="mb-3 d-flex justify-content-center">
-                        {% if request.user.userprofile.avatar %}
-                             <img src="{{ request.user.userprofile.avatar.url }}" 
-                                  class="rounded-circle shadow-lg border border-2 border-info" 
-                                  style="width: 100px; height: 100px; object-fit: cover;">
-                        {% else %}
-                             <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center fw-bold fs-2 border border-2 border-white"
-                                  style="width: 100px; height: 100px;">
-                                  {{ request.user.username|slice:":1"|upper }}
-                             </div>
-                        {% endif %}
+                        <img id="avatar-preview" 
+                             src="{% if request.user.profile.avatar %}{{ request.user.profile.avatar.url }}{% else %}https://sbcf.fr/wp-content/uploads/2018/03/sbcf-default-avatar.png{% endif %}" 
+                             class="rounded-circle shadow-lg border border-2 border-info" 
+                             style="width: 100px; height: 100px; object-fit: cover;">
                     </div>
                     
-                    <div class="text-start">
-                        {{ p_form.avatar }} 
+                    <div class="text-center">
+                        <input type="file" name="avatar" accept="image/*" id="id_avatar" class="d-none" onchange="previewImage(this)">
+                        
+                        <label for="id_avatar" class="custom-file-upload">
+                            <i class="fa-solid fa-cloud-arrow-up me-2"></i>Chọn ảnh mới
+                        </label>
+                        
+                        <div id="file-name-text" class="file-name-display">
+                            Chưa chọn tệp ( Chỉ hỗ trợ ảnh JPG, PNG, GIF )
+                        </div>
                     </div>
-                    <small class="text-white-50 mt-2 d-block">* Hỗ trợ: JPG, PNG, GIF</small>
                 </div>
 
                 <div class="mb-3">
-                    {{ u_form.last_name.label_tag }}
+                    <label>Họ (Last Name)</label>
                     {{ u_form.last_name }}
                 </div>
 
                 <div class="mb-3">
-                    {{ u_form.first_name.label_tag }}
+                    <label>Tên (First Name)</label>
                     {{ u_form.first_name }}
                 </div>
 
                 <div class="mb-3">
-                    {{ u_form.email.label_tag }}
+                    <label>Email</label>
                     {{ u_form.email }}
-                    <div class="form-text text-white-50 small mt-1">
-                        <i class="fa-solid fa-circle-info me-1"></i>Email dùng để khôi phục tài khoản.
-                    </div>
+                </div>
+
+                <div class="d-none">
+                    {{ p_form.alert_city }}
+                    {{ p_form.receive_alerts }}
                 </div>
 
                 <div class="d-grid gap-2 mt-4">
@@ -119,4 +132,21 @@
         </div>
     </div>
 </div>
+
+<script>
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            // 1. Hiển thị ảnh xem trước
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('avatar-preview').src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+
+            // 2. Cập nhật dòng chữ tên file
+            document.getElementById('file-name-text').innerText = input.files[0].name;
+            document.getElementById('file-name-text').style.color = "#00f2fe"; // Đổi màu xanh cho nổi
+        }
+    }
+</script>
 {% endblock %}

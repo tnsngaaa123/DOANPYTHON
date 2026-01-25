@@ -216,15 +216,15 @@
                         class="list-group-item list-group-item-action bg-transparent text-white border-0 py-3 px-4 fw-bold d-flex align-items-center {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
                             
                             <div class="me-3 d-flex align-items-center justify-content-center" style="width: 25px; height: 25px;">
-                                
-                                {% if request.user.userprofile.avatar and "default.jpg" not in request.user.userprofile.avatar.url %}
-                                    <img src="{{ request.user.userprofile.avatar.url }}" 
-                                        class="rounded-circle border border-white" 
-                                        style="width: 30px; height: 30px; object-fit: cover;">
+    
+                                {% if request.user.profile.avatar and "default.jpg" not in request.user.profile.avatar.url %}
+                                    <img src="{{ request.user.profile.avatar.url }}" 
+                                        class="rounded-circle border border-white shadow-sm" 
+                                        style="width: 32px; height: 32px; object-fit: cover;">
                                 
                                 {% else %}
                                     <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center fw-bold shadow-sm"
-                                        style="width: 30px; height: 30px; font-size: 0.9rem; border: 2px solid rgba(255,255,255,0.8);">
+                                        style="width: 32px; height: 32px; font-size: 0.9rem; border: 2px solid rgba(255,255,255,0.8);">
                                         {% if request.user.first_name %}
                                             {{ request.user.first_name|slice:":1"|upper }}
                                         {% else %}
